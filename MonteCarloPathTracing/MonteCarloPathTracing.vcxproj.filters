@@ -1,0 +1,141 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="头文件">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Auxiliary">
+      <UniqueIdentifier>{014eb2a1-54b8-4022-b874-bbe19c8884f5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Auxiliary\opencl">
+      <UniqueIdentifier>{2214e6a6-6090-4002-b154-6ed13cfb4b29}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Auxiliary\json">
+      <UniqueIdentifier>{c45e146d-dbad-4843-9913-3be8de29f721}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Auxiliary\tinyobj">
+      <UniqueIdentifier>{a72ced23-1768-4efe-b15e-f7cc3b88a9cf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Auxiliary\opengl">
+      <UniqueIdentifier>{f9d571e8-9491-4084-9296-5cdf6a0b15d2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Auxiliary\stb_image">
+      <UniqueIdentifier>{c7b65ecf-b110-417d-9f5b-488e42889ab6}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="RayGeneration">
+      <UniqueIdentifier>{af7d5b9b-57f6-48ce-b1ac-5ed672a42d21}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="SceneBuild">
+      <UniqueIdentifier>{2c36273e-809c-4684-b62f-77f33a1c9c13}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="OutColor">
+      <UniqueIdentifier>{1406fa2c-1bcb-4111-b615-b01ccd4e31d7}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="oclbasic.h">
+      <Filter>Auxiliary\opencl</Filter>
+    </ClInclude>
+    <ClInclude Include="jsonrw.h">
+      <Filter>Auxiliary\json</Filter>
+    </ClInclude>
+    <ClInclude Include="tiny_obj_loader.h">
+      <Filter>Auxiliary\tinyobj</Filter>
+    </ClInclude>
+    <ClInclude Include="openglapp.h">
+      <Filter>Auxiliary\opengl</Filter>
+    </ClInclude>
+    <ClInclude Include="OpenCLApp.h">
+      <Filter>Auxiliary\opencl</Filter>
+    </ClInclude>
+    <ClInclude Include="stb_image_write.h">
+      <Filter>Auxiliary\stb_image</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdpartywrapper.h">
+      <Filter>Auxiliary</Filter>
+    </ClInclude>
+    <ClInclude Include="raygeneration.h">
+      <Filter>RayGeneration</Filter>
+    </ClInclude>
+    <ClInclude Include="config.h">
+      <Filter>Auxiliary</Filter>
+    </ClInclude>
+    <ClInclude Include="scenebuild.h">
+      <Filter>SceneBuild</Filter>
+    </ClInclude>
+    <ClInclude Include="objdef.h">
+      <Filter>Auxiliary</Filter>
+    </ClInclude>
+    <ClInclude Include="colorout.h">
+      <Filter>OutColor</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="oclbasic.cpp">
+      <Filter>Auxiliary\opencl</Filter>
+    </ClCompile>
+    <ClCompile Include="main.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="jsonrw.cpp">
+      <Filter>Auxiliary\json</Filter>
+    </ClCompile>
+    <ClCompile Include="tiny_obj_loader.cpp">
+      <Filter>Auxiliary\tinyobj</Filter>
+    </ClCompile>
+    <ClCompile Include="OpenCLApp.cpp">
+      <Filter>Auxiliary\opencl</Filter>
+    </ClCompile>
+    <ClCompile Include="openglapp.cpp">
+      <Filter>Auxiliary\opengl</Filter>
+    </ClCompile>
+    <ClCompile Include="stb_image_write.cpp">
+      <Filter>Auxiliary\stb_image</Filter>
+    </ClCompile>
+    <ClCompile Include="thirdpartywrapper.cpp">
+      <Filter>Auxiliary</Filter>
+    </ClCompile>
+    <ClCompile Include="raygeneration.cpp">
+      <Filter>RayGeneration</Filter>
+    </ClCompile>
+    <ClCompile Include="config.cpp">
+      <Filter>Auxiliary</Filter>
+    </ClCompile>
+    <ClCompile Include="scenebuild.cpp">
+      <Filter>SceneBuild</Filter>
+    </ClCompile>
+    <ClCompile Include="colorout.cpp">
+      <Filter>OutColor</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="config.json">
+      <Filter>资源文件</Filter>
+    </None>
+    <None Include="packages.config" />
+    <None Include="kernels\rayGenerator.cl">
+      <Filter>RayGeneration</Filter>
+    </None>
+    <None Include="kernels\intersect.cl">
+      <Filter>SceneBuild</Filter>
+    </None>
+    <None Include="kernels\shade.cl">
+      <Filter>SceneBuild</Filter>
+    </None>
+    <None Include="kernels\testkernel.cl">
+      <Filter>OutColor</Filter>
+    </None>
+    <None Include="kernels\history.cl">
+      <Filter>OutColor</Filter>
+    </None>
+  </ItemGroup>
+</Project>

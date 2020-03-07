@@ -1,0 +1,82 @@
+{
+  "width": 512,
+  "height": 512,
+  "platform": "nvidia",
+
+  "directory": "../Scene/cbox/",
+  "objname": "cbox.obj",
+
+  "raygenerator": "kernels/rayGenerator.cl",
+
+
+
+  "camera": {
+    "position": [ 278, 273, -800 ],
+    "lookat": [ 278, 273, -799 ],
+    "up": [ 0, 1, 0 ],
+    "fov": 39.3077,
+    "resolution": [ 512, 512 ]
+  }
+}
+
+{
+  "width": 768,
+  "height": 512,
+  "platform": "nvidia",
+
+  "directory": "../Scene/veach_mis/",
+  "objname": "mis.obj",
+
+  "raygenerator": "kernels/rayGenerator.cl",
+
+
+
+  "camera": {
+    "position": [ 0, 2, 15 ],
+    "lookat": [ 0, -2, 2.5 ],
+    "up": [ 0, 1, 0 ],
+    "fov": 28,
+    "resolution": [ 768, 512 ]
+  }
+}
+
+
+
+
+
+
+
+
+
+
+{
+  "width": 1280,
+  "height": 720,
+  "platform": "nvidia",
+
+  "directory": "../Scene/diningroom/",
+  "objname": "diningroom.obj",
+
+  "raygenerator": "kernels/rayGenerator.cl",
+
+
+
+  "camera": {
+    "position": [ -0.5, 3, 5.5 ],
+    "lookat": [ -0.5, 2, 0 ],
+    "up": [ 0, 1, 0 ],
+    "fov": 60,
+    "resolution": [ 1280, 720 ]
+  }
+}
+
+
+
+
+
+
+
+
+
+
+
