@@ -1,7 +1,6 @@
 #include "scenebuild.h"
 #include <deque>
 #include "config.h"
-#include "jsonrw.h"
 #include <ctime>
 
 #include <iostream>
@@ -121,8 +120,6 @@ namespace {
 SceneCL::SceneCL(std::vector<MCPT::Triangle> tr, std::vector<MCPT::Material> mat, std::vector<int> matID)
 	: SceneBase()
 {
-
-
 	triangles = std::move(tr);
 	materials = std::move(mat);
 	matIndices = std::move(matID);
@@ -243,9 +240,6 @@ SceneCL::SceneCL(std::vector<MCPT::Triangle> tr, std::vector<MCPT::Material> mat
 
 	hlbvh = std::move(finalTree);
 
-
-
-
 	trBuffer = OpenCLBasic::newBuffer<Triangle>(triangles.size(), triangles.data());
 	matBuffer = OpenCLBasic::newBuffer<Material>(materials.size(), materials.data());
 	bvhBuffer = OpenCLBasic::newBuffer<BVHNode>(hlbvh.size(), hlbvh.data());
@@ -268,9 +262,9 @@ void SceneCL::intersect(MCPT::RayGeneration::RayBase* rays)
 			std::vector<uint> randNum;
 			randNum.resize(rayCount);
 
-			//srand(time(NULL));
+			srand(time(NULL));
 			for (int i = 0; i < rayCount; ++i) {
-				randNum[i] = i;
+				randNum[i] = rand();
 			}
 			randBuffer = OpenCLBasic::newBuffer<uint>(rayCount,randNum.data());
 
@@ -289,22 +283,36 @@ void SceneCL::intersect(MCPT::RayGeneration::RayBase* rays)
 
 
 void SceneCL::shade(MCPT::RayGeneration::RayBase* rays,cl::Buffer& colorBuffer) {
-	auto pt = dynamic_cast<MCPT::RayGeneration::RayCL*>(rays);
-	OpenCLBasic::setKernelArg(shadeKernel, matBuffer, pt->rayBuffer, hitBuffer, colorBuffer, randBuffer);
-	OpenCLBasic::enqueueNDRange(shadeKernel, rayCount, cl::NullRange);
-
+	if (typeid(*rays) == typeid(MCPT::RayGeneration::RayCL)) {
+		auto pt = dynamic_cast<MCPT::RayGeneration::RayCL*>(rays);
+		OpenCLBasic::setKernelArg(shadeKernel, matBuffer, pt->rayBuffer, hitBuffer, colorBuffer, randBuffer);
+		OpenCLBasic::enqueueNDRange(shadeKernel, rayCount, cl::NullRange);
+	}
+	else {
+		throw "Not Implemented";
+	}
 }
 
 
 
 std::unique_ptr< SceneBase > MCPT::SceneBuild::buildScene(std::vector<MCPT::Triangle> tr, std::vector<MCPT::Material> mat, std::vector<int> matID) {
-	return std::make_unique<SceneCL>(std::move(tr), std::move(mat), std::move(matID));
+	if (Config::USEOPENCL()) {
+		return std::make_unique<SceneCL>(std::move(tr), std::move(mat), std::move(matID));
+	}
+	else {
+		throw "Not Implemented";
+	}
 }
 
 void MCPT::SceneBuild::init() {
-	intersectProgram = OpenCLBasic::createProgramFromFileWithHeader("kernels/intersect.cl", "objdef.h");
-	intersectKernel = OpenCLBasic::createKernel(intersectProgram, "intersectRays");
+	if (Config::USEOPENCL()) {
+		intersectProgram = OpenCLBasic::createProgramFromFileWithHeader(Config::INTERSECTKERNELPATH(), "objdef.h");
+		intersectKernel = OpenCLBasic::createKernel(intersectProgram, "intersectRays");
 
-	shadeProgram = OpenCLBasic::createProgramFromFileWithHeader("kernels/shade.cl", "objdef.h");
-	shadeKernel = OpenCLBasic::createKernel(shadeProgram, "shade");
+		shadeProgram = OpenCLBasic::createProgramFromFileWithHeader(Config::SHADEKERNELPATH(), "objdef.h",("-D MAX_DEPTH="+std::to_string(Config::MAXDEPTH())));
+		shadeKernel = OpenCLBasic::createKernel(shadeProgram, "shade");
+	}
+	else {
+		throw "Not Implemented";
+	}
 }

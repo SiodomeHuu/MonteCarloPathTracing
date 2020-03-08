@@ -3,9 +3,12 @@
 #include "config.h"
 #include "objdef.h"
 #include <cassert>
+#include <vector>
 
 using namespace MCPT;
 using namespace MCPT::RayGeneration;
+
+using namespace nlohmann;
 
 namespace {
 
@@ -15,33 +18,30 @@ namespace {
 	cl::Kernel rayGenerator;
 	
 	cl::Buffer cameraBuffer;
-	//cl::Buffer rayBuffer;
-
-
-
-	Camera parseCamera(json::JsonObject& jsonCamera) {
+	
+	Camera parseCamera(const json& jsonCamera) {
 		Camera ans = { 0 };
 		ans.cameraType = 0; // always perspective camera
 
-		auto jsPos = std::get<json::JsonArray>(jsonCamera["position"].v);
-		auto jsLookat = std::get<json::JsonArray>(jsonCamera["lookat"].v);
-		auto jsUp = std::get<json::JsonArray>(jsonCamera["up"].v);
+		auto jsPos = jsonCamera["position"].get<std::vector<json> >();
+		auto jsLookat = jsonCamera["lookat"].get<std::vector<json> >();
+		auto jsUp = jsonCamera["up"].get<std::vector<json> >();
 
 		for (int i = 0; i < 3; ++i) {
-			ans.center.s[i] = static_cast<float>( std::get<double>(jsPos[i].v ) );
+			ans.center.s[i] = float(jsPos[i]);
 		}
 
 		float4 lookat;
 		for (int i = 0; i < 3; ++i) {
-			lookat.s[i] = static_cast<float>(std::get<double>(jsLookat[i].v));
+			lookat.s[i] = float(jsLookat[i]);
 		}
 		ans.direction = lookat - ans.center;
 		ans.direction.w = 0.0f;
 
 		for (int i = 0; i < 3; ++i) {
-			ans.up.s[i] = static_cast<float>(std::get<double>(jsUp[i].v));
+			ans.up.s[i] = float(jsUp[i]);
 		}
-		ans.arg = std::get<double>(jsonCamera["fov"].v) * M_PI / 180.0f;
+		ans.arg = float(jsonCamera["fov"]) * M_PI / 180.0f;
 
 		if (ans.cameraType == 0) {
 			float4 horizontal = cross(ans.direction, ans.up);
@@ -79,33 +79,42 @@ namespace {
 }
 
 RayBase* MCPT::RayGeneration::generateRay() {
-	assert(has_init);
-
-	OpenCLBasic::setKernelArg(rayGenerator, cameraBuffer, rayCL.rayBuffer);
-	OpenCLBasic::enqueueNDRange(rayGenerator, { res.x,res.y }, cl::NullRange);
-
-	return &rayCL;
+	if (Config::USEOPENCL()) {
+		assert(has_init);
+		OpenCLBasic::setKernelArg(rayGenerator, cameraBuffer, rayCL.rayBuffer);
+		OpenCLBasic::enqueueNDRange(rayGenerator, { res.x,res.y }, cl::NullRange);
+		return &rayCL;
+	}
+	else {
+		throw "Not Implemented";
+	}
 }
 
 void MCPT::RayGeneration::init()
 {
 	static auto initer = [&]() {
-		program = OpenCLBasic::createProgramFromFileWithHeader(Config::RAYGENERATOR(), "objdef.h");
-		rayGenerator = OpenCLBasic::createKernel(program, "generateRay");
+		if (Config::USEOPENCL()) {
+			program = OpenCLBasic::createProgramFromFileWithHeader(Config::RAYGENERATOR(), "objdef.h");
+			rayGenerator = OpenCLBasic::createKernel(program, "generateRay");
 
-		auto jsonCamera = Config::GETCAMERA();
-		camera = parseCamera(jsonCamera);
+			auto jsonCamera = Config::GETCAMERA();
+			camera = parseCamera(jsonCamera);
 
-		auto resolution = std::get<json::JsonArray>(jsonCamera["resolution"].v);
-		res = { static_cast<uint>(std::get<double>(resolution[0].v)), static_cast<uint>(std::get<double>(resolution[1].v)) };
+			auto resolution = jsonCamera["resolution"].get<std::vector<json> >();
+			res = { uint(resolution[0]), uint(resolution[1]) };
 
-		cameraBuffer = OpenCLBasic::newBuffer<Camera>(1, &camera);
+			cameraBuffer = OpenCLBasic::newBuffer<Camera>(1, &camera);
 
-		rayCL.rayBuffer = OpenCLBasic::newBuffer<Ray>(res.x * res.y);
+			rayCL.rayBuffer = OpenCLBasic::newBuffer<Ray>(res.x * res.y);
 
-		has_init = true;
+			has_init = true;
 
-		return 0;
+			return 0;
+		}
+		else {
+			throw "Not Implemented";
+		}
+		
 	}();
 }
 

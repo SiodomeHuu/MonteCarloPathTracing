@@ -86,7 +86,7 @@ namespace MCPT::ThirdPartyWrapper {
 				tempMat.type = MaterialType::MCPT_GLOSSY;
 				tempMat.Ns = mat.shininess;
 				tempMat.ks = { mat.specular[0],mat.specular[1],mat.specular[2],0.0f };
-				tempMat.ks = (mat.shininess + 1) * (2.0 / M_PI) * tempMat.ks;
+				tempMat.ks = (mat.shininess + 2) * (2.0 / M_PI) * tempMat.ks;
 				tempMat.kd = { mat.diffuse[0],mat.diffuse[1],mat.diffuse[2],0.0f };
 				tempMat.kd = (1.0 / M_PI) * tempMat.kd;
 				ansMat.push_back(tempMat);

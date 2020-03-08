@@ -17,8 +17,6 @@ namespace MCPT {
 #endif
 	typedef float16 Matrix;
 
-	#define MAX_DEPTH 16
-	#define MAX_ATTEMPT 2048
 
 	typedef struct Camera_tag {
 		float4 center, direction, up, horizontal;

@@ -58,7 +58,19 @@ float4 randomDirection(float4 normal, uint* seed) {
 	return normalize(cos(deg) * s * axis1 + sin(deg) * s * axis2 + (1-deg2) * normal);
 }
 
+float calcRatio(float4 normal, float4 incoming, float i, float t) {
+	float theta = acos(dot(normal.s012,incoming.s012)/length(normal.s012)/length(incoming.s012));
+	float outer = asin(sin(theta)*i/t);
+	float rs = (i*cos(theta)-t*cos(outer))/(i*cos(theta)+t*cos(outer));
+	float rp = (t*cos(theta)-i*cos(outer))/(t*cos(theta)+i*cos(outer));
+	return (rs*rs+rp*rp)/2;
+}
 
+float calcFresnel(float4 normal, float4 incoming, float ior) {
+	float k = pow( (ior-1)/(ior+1), 2.0f);
+	float fresnel = k + (1-k)* pow(  1-fabs(dot(normal.s012,incoming.s012))  , 5.0f);
+	return fresnel;
+}
 
 __kernel void shade(
 	__global Material* materials,
@@ -95,6 +107,7 @@ __kernel void shade(
 	bool ifInObj;
 	float i;
 	float t;
+	float ratio;
 	
 
 	switch(pMat->type) {
@@ -124,7 +137,7 @@ __kernel void shade(
 
 			colorBuffer[id] = colorBuffer[id] * pMat->ks
 				* pow(dot(newRay.direction.s012,reflect.s012),materials[materialID].Ns)
-				/** dot(newRay.direction.s012,myHit.normal.s012)*/ / (float)(2*M_PI);
+				* dot(newRay.direction.s012,myHit.normal.s012) / (float)(2*M_PI);
 			randomNum[id] = myRandSeed;
 		}
 		else {
@@ -156,21 +169,26 @@ __kernel void shade(
 		ifTransmit = transmittedDirection(myHit.normal,myRay.direction,i,t,&newRay.direction);
 		if(!ifTransmit) {
 			newRay.origin = myHit.intersectPoint;
-			//newRay.direction = mirrorDirection(myHit.normal,myRay.direction);
-			newRay.direction = randomDirection(myHit.normal,&myRandSeed);
+			newRay.direction = mirrorDirection(myHit.normal,myRay.direction);
+			newRay.id.w = myRay.id.w;
+			newRay.term_depth.w = myRay.term_depth.w + 1;
+			break;
+		}
+		else {
+			float fresnel = calcFresnel(myHit.normal, newRay.direction, pMat->Ni);
+			
+			newRay.origin = myHit.intersectPoint;
 			newRay.id.w = myRay.id.w;
 			newRay.term_depth.w = myRay.term_depth.w + 1;
 			
-			colorBuffer[id] = colorBuffer[id] * dot(myRay.direction.s012,myHit.normal.s012) / (float)(2*M_PI);
-			//rays[id].term_depth.w |= 0xFF000000;
-			//colorBuffer[id] = (float4)(0,0,0,0);
-			return;
-		}
-		else {
-			newRay.origin = myHit.intersectPoint + EPSILON * newRay.direction;
-			newRay.id.w = myRay.id.w;
-			newRay.term_depth.w = myRay.term_depth.w + 1;
-			newRay.term_depth.w ^= 0x00FF0000;
+			if( (random(&myRandSeed)*1.0f/32768) >= fresnel ) {
+				newRay.term_depth.w ^= 0x00FF0000;
+			}
+			else {
+				newRay.direction.s012 = mirrorDirection(myHit.normal,myRay.direction).s012;
+			}
+
+			randomNum[id] = myRandSeed;
 		}
 		break;
 	default:
@@ -178,9 +196,9 @@ __kernel void shade(
 		break;
 	}
 	
-	if((newRay.term_depth.w & 0x0000FFFF) >= MAX_DEPTH && !(myRay.term_depth.w & 0xFF000000)) {
-		colorBuffer[id] = (float4)(0,0,0,0);
-		myRay.term_depth.w |= 0xFF000000;
+	if( (newRay.term_depth.w & 0x0000FFFF) >= MAX_DEPTH) {
+		colorBuffer[id] = (float4)(0.0f,0.0f,0.0f,0.0f);
+		newRay.term_depth.w |= 0xFF000000;
 	}
 	rays[id] = newRay;
 

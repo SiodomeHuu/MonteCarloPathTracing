@@ -45,9 +45,6 @@
     <ClInclude Include="oclbasic.h">
       <Filter>Auxiliary\opencl</Filter>
     </ClInclude>
-    <ClInclude Include="jsonrw.h">
-      <Filter>Auxiliary\json</Filter>
-    </ClInclude>
     <ClInclude Include="tiny_obj_loader.h">
       <Filter>Auxiliary\tinyobj</Filter>
     </ClInclude>
@@ -78,6 +75,9 @@
     <ClInclude Include="colorout.h">
       <Filter>OutColor</Filter>
     </ClInclude>
+    <ClInclude Include="json.hpp">
+      <Filter>Auxiliary\json</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="oclbasic.cpp">
@@ -85,9 +85,6 @@
     </ClCompile>
     <ClCompile Include="main.cpp">
       <Filter>源文件</Filter>
-    </ClCompile>
-    <ClCompile Include="jsonrw.cpp">
-      <Filter>Auxiliary\json</Filter>
     </ClCompile>
     <ClCompile Include="tiny_obj_loader.cpp">
       <Filter>Auxiliary\tinyobj</Filter>

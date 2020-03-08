@@ -7,6 +7,7 @@
 #include<iostream>
 #include "thirdpartywrapper.h"
 
+
 using namespace MCPT;
 using namespace MCPT::ColorOut;
 
@@ -31,7 +32,7 @@ void ColorOut::init() {
 	program = OpenCLBasic::createProgramFromFile("kernels/testkernel.cl");
 	outKernel = OpenCLBasic::createKernel(program, "func");
 
-	histProgram = OpenCLBasic::createProgramFromFileWithHeader("kernels/history.cl","objdef.h");
+	histProgram = OpenCLBasic::createProgramFromFileWithHeader("kernels/history.cl","objdef.h","-D MAX_ATTEMPT="+std::to_string(Config::MAXATTEPMT()));
 	histKernel = OpenCLBasic::createKernel(histProgram, "func");
 }
 
@@ -51,7 +52,7 @@ void MCPT::ColorOut::outputColorCL(cl::ImageGL& tex,cl::Buffer& bf) {
 		return 0;
 	}();
 
-	if (attemptCount <= MAX_ATTEMPT) {
+	if (attemptCount <= Config::MAXATTEPMT()) {
 		OpenCLBasic::setKernelArg(histKernel, bf, frameBuffer, sampleCount);
 		OpenCLBasic::enqueueNDRange(histKernel, { (size_t)Config::WIDTH()  , (size_t)Config::HEIGHT() }, cl::NullRange);
 

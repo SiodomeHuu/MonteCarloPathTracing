@@ -8,5 +8,8 @@ __kernel void func(__write_only image2d_t pixels, __global float4* color) {
 	
     float4 col = color[id];
 	col.w = 0.0f;
+	col.x = pow(col.x, 1/2.2f);
+	col.y = pow(col.y, 1/2.2f);
+	col.z = pow(col.z, 1/2.2f);
 	write_imagef(pixels,(int2)(idx,idy),col);
 }

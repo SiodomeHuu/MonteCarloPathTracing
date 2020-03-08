@@ -1,10 +1,11 @@
 #include "config.h"
-#include "jsonrw.h"
 #include <fstream>
 #include <sstream>
-
+#include <vector>
 
 #define RETURNFUNC(A,B) decltype(B) A() {return B;}
+
+using namespace nlohmann;
 
 namespace {
 	int width;
@@ -12,29 +13,57 @@ namespace {
 	std::string platform;
 
 	std::string rayGenerator;
-	MCPT::json::JsonObject camera;
+	std::string intersectKernelPath;
+	std::string shadeKernelPath;
 
 	std::string directory;
 	std::string objname;
+
+	bool useOpencl;
+
+	json configObj;
+	json config;
+	json camera;
+
+	int maxDepth;
+	int maxAttempt;
 
 	struct CONFIG {
 		CONFIG() {
 			std::ifstream fin("config.json");
 			std::stringstream ss;
 			ss << fin.rdbuf();
+			auto str = ss.str();
 			
-			jobj = MCPT::json::parseJson(ss.str());
+			configObj = json::parse(str);
 
-			width = std::get<double>(jobj["width"].v);
-			height = std::get<double>(jobj["height"].v);
-			platform = std::get<std::string>(jobj["platform"].v);
-			rayGenerator = std::get<std::string>(jobj["raygenerator"].v);
-			camera = std::get<MCPT::json::JsonObject>(jobj["camera"].v);
 
-			directory = std::get<std::string>(jobj["directory"].v);
-			objname = std::get<std::string>(jobj["objname"].v);
+			auto configs = configObj["config"];
+
+			int configID = int(configObj["configid"]);
+
+			config = configs[configID];
+
+			width = double(config["width"]);
+			height = double(config["height"]);
+
+			platform = config["platform"].get<std::string>();
+
+			rayGenerator = config["raygenerator"].get<std::string>();
+
+			camera = config["camera"];
+
+			directory = config["directory"].get<std::string>();
+			objname = config["objname"].get<std::string>();
+
+			useOpencl = bool(config["opencl"]);
+
+			intersectKernelPath = config["intersect"].get<std::string>();
+			shadeKernelPath = config["shade"].get<std::string>();
+
+			maxDepth = config["maxdepth"];
+			maxAttempt = config["attempt"];
 		}
-		MCPT::json::JsonObject jobj;
 	} cfg;
 }
 
@@ -46,5 +75,10 @@ namespace MCPT::Config {
 	RETURNFUNC(GETCAMERA, camera);
 	RETURNFUNC(GETDIRECTORY, directory);
 	RETURNFUNC(GETOBJNAME, objname);
+	RETURNFUNC(USEOPENCL, useOpencl);
+	RETURNFUNC(INTERSECTKERNELPATH, intersectKernelPath);
+	RETURNFUNC(SHADEKERNELPATH, shadeKernelPath);
+	RETURNFUNC(MAXDEPTH, maxDepth);
+	RETURNFUNC(MAXATTEPMT, maxAttempt);
 }
 

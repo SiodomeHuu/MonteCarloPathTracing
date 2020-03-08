@@ -140,7 +140,7 @@
   <ItemGroup>
     <ClInclude Include="colorout.h" />
     <ClInclude Include="config.h" />
-    <ClInclude Include="jsonrw.h" />
+    <ClInclude Include="json.hpp" />
     <ClInclude Include="objdef.h" />
     <ClInclude Include="oclbasic.h" />
     <ClInclude Include="OpenCLApp.h" />
@@ -154,7 +154,6 @@
   <ItemGroup>
     <ClCompile Include="colorout.cpp" />
     <ClCompile Include="config.cpp" />
-    <ClCompile Include="jsonrw.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="oclbasic.cpp" />
     <ClCompile Include="OpenCLApp.cpp" />
@@ -188,7 +187,7 @@
   </Target>
   <ProjectExtensions>
     <VisualStudio>
-      <UserProperties config_1json__JsonSchema="http://json.schemastore.org/behat" />
+      <UserProperties config_1json__JsonSchema="" />
     </VisualStudio>
   </ProjectExtensions>
 </Project>

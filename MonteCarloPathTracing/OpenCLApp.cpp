@@ -66,7 +66,7 @@ namespace MCPT::OpenCL {
 		auto pRayBase = MCPT::RayGeneration::generateRay();
 
 
-		for (int i = 0; i < MAX_DEPTH; ++i) {
+		for (int i = 0; i < Config::MAXDEPTH(); ++i) {
 			scene->intersect(pRayBase);
 			scene->shade(pRayBase, colorBuffer);
 		}
