@@ -21,8 +21,8 @@ namespace MCPT::SceneBuild {
 	class SceneCL : public SceneBase {
 	public:
 		SceneCL(std::vector<MCPT::Triangle>, std::vector<MCPT::Material>, std::vector<int>);
-		virtual void intersect(MCPT::RayGeneration::RayBase* rays);
-		virtual void shade(MCPT::RayGeneration::RayBase* rays, cl::Buffer& colorBuffer);
+		virtual void intersect(MCPT::RayGeneration::RayBase* rays) override;
+		virtual void shade(MCPT::RayGeneration::RayBase* rays, cl::Buffer& colorBuffer) override;
 
 	};
 

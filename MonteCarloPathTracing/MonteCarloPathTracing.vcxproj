@@ -138,6 +138,9 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="BVH\bvh.h" />
+    <ClInclude Include="BVH\hlbvh.h" />
+    <ClInclude Include="BVH\treeletBVH.h" />
     <ClInclude Include="colorout.h" />
     <ClInclude Include="config.h" />
     <ClInclude Include="json.hpp" />
@@ -152,6 +155,9 @@
     <ClInclude Include="tiny_obj_loader.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="BVH\bvh.cpp" />
+    <ClCompile Include="BVH\hlbvh.cpp" />
+    <ClCompile Include="BVH\treeletBVH.cpp" />
     <ClCompile Include="colorout.cpp" />
     <ClCompile Include="config.cpp" />
     <ClCompile Include="main.cpp" />

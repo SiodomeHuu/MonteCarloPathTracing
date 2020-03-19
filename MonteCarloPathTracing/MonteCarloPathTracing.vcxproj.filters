@@ -40,25 +40,19 @@
     <Filter Include="OutColor">
       <UniqueIdentifier>{1406fa2c-1bcb-4111-b615-b01ccd4e31d7}</UniqueIdentifier>
     </Filter>
+    <Filter Include="BVH">
+      <UniqueIdentifier>{7c9d5534-e8ef-428c-a37b-629691fcc7b6}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="oclbasic.h">
       <Filter>Auxiliary\opencl</Filter>
-    </ClInclude>
-    <ClInclude Include="tiny_obj_loader.h">
-      <Filter>Auxiliary\tinyobj</Filter>
     </ClInclude>
     <ClInclude Include="openglapp.h">
       <Filter>Auxiliary\opengl</Filter>
     </ClInclude>
     <ClInclude Include="OpenCLApp.h">
       <Filter>Auxiliary\opencl</Filter>
-    </ClInclude>
-    <ClInclude Include="stb_image_write.h">
-      <Filter>Auxiliary\stb_image</Filter>
-    </ClInclude>
-    <ClInclude Include="thirdpartywrapper.h">
-      <Filter>Auxiliary</Filter>
     </ClInclude>
     <ClInclude Include="raygeneration.h">
       <Filter>RayGeneration</Filter>
@@ -78,6 +72,24 @@
     <ClInclude Include="json.hpp">
       <Filter>Auxiliary\json</Filter>
     </ClInclude>
+    <ClInclude Include="BVH\bvh.h">
+      <Filter>BVH</Filter>
+    </ClInclude>
+    <ClInclude Include="BVH\treeletBVH.h">
+      <Filter>BVH</Filter>
+    </ClInclude>
+    <ClInclude Include="BVH\hlbvh.h">
+      <Filter>BVH</Filter>
+    </ClInclude>
+    <ClInclude Include="stb_image_write.h">
+      <Filter>Auxiliary\stb_image</Filter>
+    </ClInclude>
+    <ClInclude Include="tiny_obj_loader.h">
+      <Filter>Auxiliary\tinyobj</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdpartywrapper.h">
+      <Filter>Auxiliary</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="oclbasic.cpp">
@@ -86,20 +98,11 @@
     <ClCompile Include="main.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="tiny_obj_loader.cpp">
-      <Filter>Auxiliary\tinyobj</Filter>
-    </ClCompile>
     <ClCompile Include="OpenCLApp.cpp">
       <Filter>Auxiliary\opencl</Filter>
     </ClCompile>
     <ClCompile Include="openglapp.cpp">
       <Filter>Auxiliary\opengl</Filter>
-    </ClCompile>
-    <ClCompile Include="stb_image_write.cpp">
-      <Filter>Auxiliary\stb_image</Filter>
-    </ClCompile>
-    <ClCompile Include="thirdpartywrapper.cpp">
-      <Filter>Auxiliary</Filter>
     </ClCompile>
     <ClCompile Include="raygeneration.cpp">
       <Filter>RayGeneration</Filter>
@@ -112,6 +115,24 @@
     </ClCompile>
     <ClCompile Include="colorout.cpp">
       <Filter>OutColor</Filter>
+    </ClCompile>
+    <ClCompile Include="BVH\bvh.cpp">
+      <Filter>BVH</Filter>
+    </ClCompile>
+    <ClCompile Include="BVH\treeletBVH.cpp">
+      <Filter>BVH</Filter>
+    </ClCompile>
+    <ClCompile Include="BVH\hlbvh.cpp">
+      <Filter>BVH</Filter>
+    </ClCompile>
+    <ClCompile Include="stb_image_write.cpp">
+      <Filter>Auxiliary\stb_image</Filter>
+    </ClCompile>
+    <ClCompile Include="tiny_obj_loader.cpp">
+      <Filter>Auxiliary\tinyobj</Filter>
+    </ClCompile>
+    <ClCompile Include="thirdpartywrapper.cpp">
+      <Filter>Auxiliary</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
