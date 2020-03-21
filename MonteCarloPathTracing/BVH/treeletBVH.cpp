@@ -36,9 +36,6 @@ namespace {
 
 
 
-	void split(std::vector<BVHNode>& bvh,std::vector<int> nodeID,)
-
-
 	void reconstructTreelet(std::vector<BVHNode>& bvh, size_t rootID) {
 
 		struct QueueNode {
@@ -52,7 +49,7 @@ namespace {
 		};
 
 		std::vector< QueueNode > pq;
-		std::deque< int > freeBVHNode; // used in reconstruction part
+		std::vector< int > freeBVHNode; // used in reconstruction part
 
 		auto& node = bvh[rootID];
 		pq.push_back({ (int)rootID,SAHValue[rootID] });
@@ -84,6 +81,8 @@ namespace {
 				freeBVHNode.push_back(maxNodeID);
 			}
 		} // then select MAX_NODE of the nodes need to be reconstructed
+
+		if (pq.size() < MAX_NODE) return; //less node, now return
 		
 		std::vector< float > areaOfUnion;
 		std::vector< BoundingBox > unionBoxes;
@@ -204,34 +203,86 @@ namespace {
 
 		// then reconstruct tree
 		{
-
-
-			std::function< void(std::vector<BVHNode>&, std::vector<int>&, int, int) > split;
-
-
-
-
-
-			struct AuxTreeNode {
-				int split;
-				int parent;
-				int left;
-				int right;
+			auto Count1Num = [](int x) -> int {
+				int ans = 0;
+				while (x > 0) {
+					ans += (x & 0x1);
+					x >>= 1;
+				}
+				return ans;
+			};
+			auto CLZ = [](int a) -> int {
+				int ans = 0;
+				if (a == 0) return 32;
+				while (a > 0) {
+					a = a << 1;
+					++ans;
+				}
+				return ans;
 			};
 
-			std::vector< int > partitionTree;
-			partitionTree.resize((MAX_NODE << 1) - 1);
-			partitionTree[0] = partitionPos[partitionPos.size() - 1];
+			struct SplitInnerNode {
+				int parentCode;
+				int selfCode;
 
-			for (int i = 0; i < (partitionTree.size() >> 1); ++i) {
-				auto left = (i << 1) + 1;
-				auto right = left + 1;
-				partitionTree[left] = partitionPos[ partitionTree[i] ];
-				partitionTree[right] = (~partitionTree[left]) & TOTAL_BIT;
+				int parentID;
+			};
+
+			std::vector< SplitInnerNode > toSplit;
+			std::vector< SplitInnerNode > answer;
+
+			int freeNodeNow = 0;
+			toSplit.push_back({ TOTAL_BIT , partitionPos[TOTAL_BIT], freeBVHNode[freeNodeNow] });
+			++freeNodeNow;
+
+			while (!toSplit.empty()) {
+				for (auto i : toSplit) {
+					auto leftCode = partitionPos[i.selfCode];
+					auto rightCode = partitionPos[ i.selfCode ^ i.parentCode ];
+
+					auto parentNodeID = i.parentID;
+
+					if (Count1Num(i.selfCode) == 1) {
+						int toRight = (8 * sizeof(int) - 1) - CLZ(i.selfCode);
+						int node = pq[pq.size() - toRight - 1].id;
+
+						bvh[parentNodeID].left = node;
+						bvh[node].parent = parentNodeID;
+					}
+					else {
+						auto freeNext = bvh[parentNodeID].left = freeBVHNode[freeNodeNow++];
+						answer.push_back({ i.selfCode ,leftCode, freeNext });
+
+						bvh[parentNodeID].left = freeNext;
+						bvh[freeNext].parent = parentNodeID;
+					}
+
+					if (Count1Num(i.parentCode ^ i.selfCode) == 1) {
+						int toRight = (8 * sizeof(int) - 1) - CLZ(i.parentCode ^ i.selfCode);
+						int node = pq[pq.size() - toRight - 1].id;
+
+						bvh[parentNodeID].right = node;
+						bvh[node].parent = parentNodeID;
+					}
+					else {
+						auto freeNext = bvh[parentNodeID].right = freeBVHNode[freeNodeNow++];
+						answer.push_back({ i.selfCode ^ i.parentCode , rightCode, freeNext });
+
+						bvh[parentNodeID].right = freeNext;
+						bvh[freeNext].parent = parentNodeID;
+					}
+				}
+				toSplit = std::move(answer);
 			}
 
-			int x = 0;
+		}
 
+		{
+			for (int i = freeBVHNode.size() - 1; i >= 0; --i) {
+				auto& node = bvh[freeBVHNode[i]];
+				node.bbmax = max(bvh[node.left].bbmax, bvh[node.right].bbmax);
+				node.bbmin = min(bvh[node.left].bbmin, bvh[node.right].bbmin);
+			}
 		}
 
 	}

@@ -62,11 +62,13 @@ SceneCL::SceneCL(std::vector<MCPT::Triangle> tr, std::vector<MCPT::Material> mat
 
 	auto hlbvh = pt->getBVH();
 	pt2 = std::make_unique< BVH::TreeletBVH<BVH::CPU> >(hlbvh);
+	auto treelet = pt2->getBVH();
 
 
 	trBuffer = OpenCLBasic::newBuffer<Triangle>(triangles.size(), triangles.data());
 	matBuffer = OpenCLBasic::newBuffer<Material>(materials.size(), materials.data());
-	bvhBuffer = OpenCLBasic::newBuffer<BVHNode>(hlbvh.size(), hlbvh.data());
+	//bvhBuffer = OpenCLBasic::newBuffer<BVHNode>(hlbvh.size(), hlbvh.data());
+	bvhBuffer = OpenCLBasic::newBuffer<BVHNode>(hlbvh.size(), treelet.data());
 	matIDBuffer = OpenCLBasic::newBuffer<int>(matIndices.size(), matIndices.data());
 	
 
