@@ -1,11 +1,20 @@
 #include "openglapp.h"
 #include "OpenCLApp.h"
 
+#include "config.h"
+#include "bvhtest.h"
+
 #include "thirdpartywrapper.h"
 
 using namespace MCPT;
 
 int main(int argc,char** argv) {
+
+	if (Config::TESTBVH()) {
+		BVH::TEST::test();
+		return 0;
+	}
+
 	OpenGL::init(argc, argv);
 	OpenCL::init();
 	OpenGL::enterLoop();

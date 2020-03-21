@@ -2,16 +2,18 @@
 #include <algorithm>
 #include <deque>
 #include <functional>
+#include <unordered_set>
+
+#include "../auxiliary.h"
 
 using namespace MCPT;
 using namespace MCPT::BVH;
+using namespace MCPT::Auxiliary;
 
 constexpr int MAX_NODE = 7;
-constexpr int TOTAL_BIT = 0x0000007F;
+constexpr int TOTAL_BIT = (1 << MAX_NODE) - 1; //0x0000007F;
 
-constexpr float Cinn = 1.2f;
-constexpr float Cleaf = 0.0f;
-constexpr float Ctri = 1.0f;
+
 
 
 namespace {
@@ -19,20 +21,7 @@ namespace {
 	std::vector<float> SAHValue;
 
 
-	inline BoundingBox unionBox(const BoundingBox& a, const BoundingBox& b) {
-		BoundingBox ans;
-		ans.bbmax = max(a.bbmax, b.bbmax);
-		ans.bbmin = min(a.bbmin, b.bbmin);
-		return ans;
-	}
-	inline float AREA(const BoundingBox& a) {
-		auto arg = a.bbmax - a.bbmin;
-		return 2.0f * (arg.x * arg.y + arg.x * arg.z + arg.y * arg.z);
-	}
-	inline float AREA(float4 bbmin, float4 bbmax) {
-		auto arg = bbmax - bbmin;
-		return 2.0f * (arg.x * arg.y + arg.x * arg.z + arg.y * arg.z);
-	}
+
 
 
 
@@ -82,18 +71,32 @@ namespace {
 			}
 		} // then select MAX_NODE of the nodes need to be reconstructed
 
-		if (pq.size() < MAX_NODE) return; //less node, now return
+		int NOW_NODE;
+		int NOW_TOTAL_BIT;
+
+		if (pq.size() < 3) {
+			return;
+		}
+		else if (pq.size() < MAX_NODE) { // now there're bugs when pq.size()<MAX_NODE, wait for debugging
+			return;
+			NOW_NODE = pq.size();
+			NOW_TOTAL_BIT = (1 << NOW_NODE) - 1;
+		}
+		else {
+			NOW_NODE = MAX_NODE;
+			NOW_TOTAL_BIT = TOTAL_BIT;
+		}
 		
 		std::vector< float > areaOfUnion;
 		std::vector< BoundingBox > unionBoxes;
-		areaOfUnion.resize((1 << MAX_NODE));
-		unionBoxes.resize((1 << MAX_NODE));
+		areaOfUnion.resize((1 << NOW_NODE));
+		unionBoxes.resize((1 << NOW_NODE));
 
-		for (int i = 1; i < (1 << MAX_NODE); ++i) {
+		for (int i = 1; i < (1 << NOW_NODE); ++i) {
 			auto x = [&]() {
 				std::vector<int> ans;
-				ans.resize(MAX_NODE,0);
-				int temp = MAX_NODE - 1;
+				ans.resize(NOW_NODE,0);
+				int temp = NOW_NODE - 1;
 				int s = i;
 				while (s > 0) {
 					ans[temp] = s & 0x1;
@@ -105,7 +108,7 @@ namespace {
 			BoundingBox box = { {FLT_MAX,FLT_MAX,FLT_MAX,FLT_MAX},
 			{-FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX} };
 
-			for (int j = 0; j < MAX_NODE; ++j) {
+			for (int j = 0; j < NOW_NODE; ++j) {
 				if (x[j]) {
 					box = unionBox(box, { bvh[pq[j].id].bbmin,bvh[pq[j].id].bbmax });
 				}
@@ -115,8 +118,8 @@ namespace {
 		} // calc SA for each subset
 
 		std::vector< float > cost;
-		cost.resize(1 << MAX_NODE);
-		for (int i = 0; i < MAX_NODE; ++i) {
+		cost.resize(1 << NOW_NODE);
+		for (int i = 0; i < NOW_NODE; ++i) {
 			cost[(1 << i)] = SAHValue[ pq[i].id ];
 		} // initialize costs of individual leaves
 
@@ -143,7 +146,7 @@ namespace {
 				return ans;
 			};
 
-			for (int s = 1; s < (1 << MAX_NODE); ++s) {
+			for (int s = 1; s < (1 << NOW_NODE); ++s) {
 				ans.push_back({ CZ(s),s });
 			}
 			sort(ans.begin(), ans.end());
@@ -156,16 +159,16 @@ namespace {
 			int partition;
 		};
 		std::vector< CsPsNode > cp;
-		cp.resize(1 << MAX_NODE);
+		cp.resize(1 << NOW_NODE);
 
 		std::vector< int > partitionPos;
-		partitionPos.resize(1 << MAX_NODE);
+		partitionPos.resize(1 << NOW_NODE);
 
 		int startFrom;
 		for (startFrom = 0; startFrom < bitsVector.size(); ++startFrom) {
 			if (bitsVector[startFrom].count == 2) break;
 		}
-		for (int k = 2; k <= MAX_NODE; ++k) {
+		for (int k = 2; k <= NOW_NODE; ++k) {
 
 			// below two variable store the split position & cost
 			NEXT:
@@ -232,7 +235,7 @@ namespace {
 			std::vector< SplitInnerNode > answer;
 
 			int freeNodeNow = 0;
-			toSplit.push_back({ TOTAL_BIT , partitionPos[TOTAL_BIT], freeBVHNode[freeNodeNow] });
+			toSplit.push_back({ NOW_TOTAL_BIT , partitionPos[NOW_TOTAL_BIT], freeBVHNode[freeNodeNow] });
 			++freeNodeNow;
 
 			while (!toSplit.empty()) {
@@ -323,20 +326,54 @@ namespace {
 TreeletBVH<CPU>::TreeletBVH(const std::vector<BVHNode>& bvh)
 	: bvhnode(bvh)
 {
+	SAHValue.clear();
 	getInformation(bvhnode);
-	reconstructTreelet(bvhnode, 0);
+
+	std::unordered_set<int> flag;
+	std::unordered_set<int> toReconstruct;
+	std::unordered_set<int> temp;
+
+	for (int i = bvh.size() / 2; i < bvh.size(); ++i) {
+		toReconstruct.insert(bvh[i].parent);
+	}
+	for (auto i : toReconstruct) {
+		temp.insert(bvh[i].parent);
+	}
+	toReconstruct = std::move(temp);
+	temp.clear();
+	// above: because we usually need 7 nodes to reconstruct
+	// so the leaves & the parents of leaves are skipped
+
+	int count = 0;
+
+	while (!toReconstruct.empty()) {
+		for (auto i : toReconstruct) {
+			if (i != -1) {
+				reconstructTreelet(bvhnode, i);
+				auto x = bvh[i].parent;
+				
+				auto pair = flag.emplace(x);
+				if (!pair.second) {
+					temp.insert(x);
+				}
+			}
+		}
+		toReconstruct = std::move(temp);
+		temp.clear();
+	}
 }
 
 TreeletBVH<CPU>::TreeletBVH(std::vector<BVHNode>&& bvh)
-	: bvhnode(bvh)
-{
-	getInformation(bvhnode);
-	reconstructTreelet(bvhnode, 0);
-}
+	: TreeletBVH<CPU>(bvh)
+{}
 
 const std::vector<BVHNode>& MCPT::BVH::TreeletBVH<CPU>::getBVH() {
 	return bvhnode;
 }
 
 
+std::vector<BVHNode>&& MCPT::BVH::TreeletBVH<CPU>::releaseBVH()
+{
+	return std::move(bvhnode);
+}
 

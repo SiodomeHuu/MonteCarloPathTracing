@@ -202,3 +202,6 @@ void HLBVH<CPU>::build(std::vector<Triangle>&& triangles) {
 const std::vector<BVHNode>& MCPT::BVH::HLBVH<CPU>::getBVH() {
 	return finalTree;
 }
+std::vector<BVHNode>&& MCPT::BVH::HLBVH<CPU>::releaseBVH() {
+	return std::move(finalTree);
+}

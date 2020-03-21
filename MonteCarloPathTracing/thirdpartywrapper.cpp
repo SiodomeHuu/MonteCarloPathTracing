@@ -53,10 +53,6 @@ namespace MCPT::ThirdPartyWrapper {
 				tid[2] = x.mesh.indices[offset + 2].vertex_index;
 
 				ansTrg.push_back(packFloat(tid));
-
-				if (x.mesh.material_ids[i] == 2) {
-					int yyy = 0;
-				}
 				ansIndex.push_back(x.mesh.material_ids[i]);
 			}
 		};

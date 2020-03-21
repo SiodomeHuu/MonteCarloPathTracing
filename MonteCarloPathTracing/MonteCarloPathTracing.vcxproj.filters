@@ -43,6 +43,9 @@
     <Filter Include="BVH">
       <UniqueIdentifier>{7c9d5534-e8ef-428c-a37b-629691fcc7b6}</UniqueIdentifier>
     </Filter>
+    <Filter Include="BVHTester">
+      <UniqueIdentifier>{8cc742a0-fc01-4ff1-ba43-07220a816acb}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="oclbasic.h">
@@ -90,6 +93,12 @@
     <ClInclude Include="thirdpartywrapper.h">
       <Filter>Auxiliary</Filter>
     </ClInclude>
+    <ClInclude Include="bvhtest.h">
+      <Filter>BVHTester</Filter>
+    </ClInclude>
+    <ClInclude Include="auxiliary.h">
+      <Filter>Auxiliary</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="oclbasic.cpp">
@@ -132,6 +141,12 @@
       <Filter>Auxiliary\tinyobj</Filter>
     </ClCompile>
     <ClCompile Include="thirdpartywrapper.cpp">
+      <Filter>Auxiliary</Filter>
+    </ClCompile>
+    <ClCompile Include="bvhtest.cpp">
+      <Filter>BVHTester</Filter>
+    </ClCompile>
+    <ClCompile Include="auxiliary.cpp">
       <Filter>Auxiliary</Filter>
     </ClCompile>
   </ItemGroup>

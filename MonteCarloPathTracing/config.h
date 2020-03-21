@@ -22,4 +22,6 @@ namespace MCPT::Config {
 	std::string SHADEKERNELPATH();
 	int MAXDEPTH();
 	int MAXATTEPMT();
+
+	bool TESTBVH();
 }

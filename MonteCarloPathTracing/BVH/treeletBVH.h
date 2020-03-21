@@ -14,6 +14,7 @@ namespace MCPT::BVH {
 		TreeletBVH(std::vector<BVHNode>&& bvh);
 
 		virtual const std::vector<BVHNode>& getBVH() override;
+		virtual std::vector<BVHNode>&& releaseBVH() override;
 
 	private:
 		std::vector< BVHNode > bvhnode;

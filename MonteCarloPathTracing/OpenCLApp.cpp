@@ -45,7 +45,6 @@ namespace MCPT::OpenCL {
 			auto tex = OpenGL::getTex();
 			clTex = cl::ImageGL(OpenCLBasic::getContext(), CL_MEM_WRITE_ONLY, GL_TEXTURE_RECTANGLE_ARB, 0, tex);
 
-
 			auto [tri, mat, matId] = ThirdPartyWrapper::loadObject(GETDIRECTORY(), GETOBJNAME());
 			scene = SceneBuild::buildScene(std::move(tri), std::move(mat), std::move(matId));
 
@@ -56,27 +55,29 @@ namespace MCPT::OpenCL {
 	}
 
 	void update() {
-		std::vector<cl::Memory> tp = { clTex };
-		OpenCLBasic::getQueue().enqueueAcquireGLObjects(&tp);
-		OpenCLBasic::getQueue().finish();
-		
-		OpenCLBasic::writeBuffer(colorBuffer, colorBufferConstant.data());
+		if (!Config::TESTBVH()) {
+			std::vector<cl::Memory> tp = { clTex };
+			OpenCLBasic::getQueue().enqueueAcquireGLObjects(&tp);
+			OpenCLBasic::getQueue().finish();
+
+			OpenCLBasic::writeBuffer(colorBuffer, colorBufferConstant.data());
 
 
-		auto pRayBase = MCPT::RayGeneration::generateRay();
+			auto pRayBase = MCPT::RayGeneration::generateRay();
 
 
-		for (int i = 0; i < Config::MAXDEPTH(); ++i) {
-			scene->intersect(pRayBase);
-			scene->shade(pRayBase, colorBuffer);
+			for (int i = 0; i < Config::MAXDEPTH(); ++i) {
+				scene->intersect(pRayBase);
+				scene->shade(pRayBase, colorBuffer);
+			}
+
+
+			ColorOut::outputColorCL(clTex, colorBuffer);
+
+			OpenCLBasic::getQueue().finish();
+
+			OpenCLBasic::getQueue().enqueueReleaseGLObjects(&tp);
+			OpenCLBasic::getQueue().finish();
 		}
-		
-		
-		ColorOut::outputColorCL(clTex, colorBuffer);
-
-		OpenCLBasic::getQueue().finish();
-
-		OpenCLBasic::getQueue().enqueueReleaseGLObjects(&tp);
-		OpenCLBasic::getQueue().finish();
 	}
 }

@@ -146,7 +146,10 @@ namespace MCPT {
 		}
 		return b;
 	}
-	
+	template<class T>
+	typename GetVecSize<T>::floattype len(const T& a) {
+		return sqrt(dot(a, a));
+	}
 	
 	
 	

@@ -14,6 +14,7 @@ namespace MCPT::BVH {
 		HLBVH(std::vector<Triangle>&& triangles);
 
 		virtual const std::vector<BVHNode>& getBVH() override;
+		virtual std::vector<BVHNode>&& releaseBVH() override;
 
 	private:
 		void build(std::vector<Triangle>&& triangles);

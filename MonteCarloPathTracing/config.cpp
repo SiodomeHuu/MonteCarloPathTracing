@@ -28,6 +28,31 @@ namespace {
 	int maxDepth;
 	int maxAttempt;
 
+	bool testBVH;
+
+
+	template<class T>
+	T tryRead(json obj, const std::string& str) {
+		T temp = { 0 };
+
+		auto iter = obj.find(str.c_str());
+		if (iter != obj.end()) {
+			return T(obj[str.c_str()]);
+		}
+		return temp;
+	}
+	template<>
+	std::string tryRead<std::string>(json obj, const std::string& str) {
+		std::string temp = "";
+
+		auto iter = obj.find(str.c_str());
+		if (iter != obj.end()) {
+			return obj[str.c_str()].get<std::string>();
+		}
+		return temp;
+	}
+
+
 	struct CONFIG {
 		CONFIG() {
 			std::ifstream fin("config.json");
@@ -44,17 +69,22 @@ namespace {
 
 			config = configs[configID];
 
-			width = double(config["width"]);
-			height = double(config["height"]);
 
-			platform = config["platform"].get<std::string>();
-
-			rayGenerator = config["raygenerator"].get<std::string>();
 
 			camera = config["camera"];
 
 			directory = config["directory"].get<std::string>();
 			objname = config["objname"].get<std::string>();
+			width = double(config["width"]);
+			height = double(config["height"]);
+
+			testBVH = tryRead<bool>(config, "testbvh");
+			if (testBVH) {
+				return;
+			}
+			
+			platform = config["platform"].get<std::string>();
+			rayGenerator = config["raygenerator"].get<std::string>();
 
 			useOpencl = bool(config["opencl"]);
 
@@ -80,5 +110,6 @@ namespace MCPT::Config {
 	RETURNFUNC(SHADEKERNELPATH, shadeKernelPath);
 	RETURNFUNC(MAXDEPTH, maxDepth);
 	RETURNFUNC(MAXATTEPMT, maxAttempt);
+	RETURNFUNC(TESTBVH, testBVH);
 }
 

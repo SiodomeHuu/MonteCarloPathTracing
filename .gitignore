@@ -5,7 +5,7 @@
 
 # specific files
 *.hdr
-
+/Scene2/
 
 
 # User-specific files

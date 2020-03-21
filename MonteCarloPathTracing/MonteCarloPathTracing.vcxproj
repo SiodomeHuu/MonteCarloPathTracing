@@ -138,6 +138,8 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="auxiliary.h" />
+    <ClInclude Include="bvhtest.h" />
     <ClInclude Include="BVH\bvh.h" />
     <ClInclude Include="BVH\hlbvh.h" />
     <ClInclude Include="BVH\treeletBVH.h" />
@@ -155,6 +157,8 @@
     <ClInclude Include="tiny_obj_loader.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="auxiliary.cpp" />
+    <ClCompile Include="bvhtest.cpp" />
     <ClCompile Include="BVH\bvh.cpp" />
     <ClCompile Include="BVH\hlbvh.cpp" />
     <ClCompile Include="BVH\treeletBVH.cpp" />

@@ -19,6 +19,7 @@ namespace MCPT::BVH {
 	class CPUBVH : virtual public BVH {
 	public:
 		virtual const std::vector<BVHNode>& getBVH() = 0;
+		virtual std::vector<BVHNode>&& releaseBVH() = 0;
 	};
 
 
