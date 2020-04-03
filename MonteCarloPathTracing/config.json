@@ -1,6 +1,7 @@
 {
   "config": [
     {
+      "bvhtype": "treelet",
       "width": 512,
       "height": 512,
       "platform": "nvidia",
@@ -9,7 +10,7 @@
       "objname": "cbox.obj",
 
       "maxdepth": 16,
-      "attempt" :  2048,
+      "attempt": 2048,
 
       "raygenerator": "kernels/rayGenerator.cl",
       "intersect": "kernels/intersect.cl",
@@ -28,6 +29,7 @@
     },
 
     {
+      "bvhtype": "treelet",
       "width": 768,
       "height": 512,
       "platform": "nvidia",
@@ -39,8 +41,8 @@
       "intersect": "kernels/intersect.cl",
       "shade": "kernels/shade.cl",
 
-      "maxdepth": 8,
-      "attempt": 2048,
+      "maxdepth": 16,
+      "attempt": 8192,
 
       "camera": {
         "position": [ 0, 2, 15 ],
@@ -54,6 +56,7 @@
     },
 
     {
+      "bvhtype": "treelet",
       "width": 1280,
       "height": 720,
       "platform": "nvidia",
@@ -82,16 +85,52 @@
 
     {
       "testbvh": true,
+      "directory": "../Scene2/",
+      "objname": "hairball.obj",
+
+      "width": 1600,
+      "height": 900,
+     # "camera": {
+     #   "position": [ -0.5, 3, 5.5 ],
+    #    "lookat": [ -0.5, 2, 0 ],
+     #   "up": [ 0, 1, 0 ],
+     #   "fov": 60,
+     #   "resolution": [ 1280, 720 ]
+     # }
+    },
+
+    {
+      "testbvh": true,
+      "bvhtype" :  "treelet",
       "width": 1600,
       "height": 900,
       "directory": "../Scene2/",
-      "objname" :  "sponza.obj"
+      "objname": "sponza.obj"
       #"camera": {
-      #  "position": [ 302.353668, 410.221863, -135.232559 ],
-      #  "lookat": [ 301.5317943152072, 409.8798428566743, -134.7769869773685 ],
-      # "up": [ 0, 1, 0 ],
-      #  "fov": ,
-      #  "resolution": [ 1600, 900 ]
+        # "position": [ 302.353668, 410.221863, -135.232559 ],
+        # "lookat": [ 301.5317943152072, 409.8798428566743, -134.7769869773685 ],
+        # "up": [ 0, 1, 0 ],
+        # "fov":,
+        # "resolution": [ 1600, 900 ]
+      # }
+    },
+
+
+    {
+      "testbvh": true,
+      "bvhtype" :  "treelet",
+      "width": 512,
+      "height": 512,
+
+      "directory": "../Scene/cbox/",
+      "objname": "cbox.obj"
+
+      # "camera": {
+      #  "position": [ 278, 273, -800 ],
+      #  "lookat": [ 278, 273, -799 ],
+      #  "up": [ 0, 1, 0 ],
+      #  "fov": 39.3077,
+      #  "resolution": [ 512, 512 ]
       # }
     }
     

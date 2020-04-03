@@ -176,11 +176,13 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="config.json" />
+    <None Include="kernels\EPO.cl" />
     <None Include="kernels\history.cl" />
     <None Include="kernels\intersect.cl" />
     <None Include="kernels\rayGenerator.cl" />
     <None Include="kernels\shade.cl" />
     <None Include="kernels\testkernel.cl" />
+    <None Include="kernels\treeletBVH.cl" />
     <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

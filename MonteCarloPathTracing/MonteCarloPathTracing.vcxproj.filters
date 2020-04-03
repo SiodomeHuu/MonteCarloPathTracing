@@ -46,6 +46,12 @@
     <Filter Include="BVHTester">
       <UniqueIdentifier>{8cc742a0-fc01-4ff1-ba43-07220a816acb}</UniqueIdentifier>
     </Filter>
+    <Filter Include="BVH\HLBVH">
+      <UniqueIdentifier>{8f9f3ca3-a479-4712-9ac0-1563e32fe5d9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="BVH\TreeletBVH">
+      <UniqueIdentifier>{bf4a74b8-0611-44d2-8308-3a8e5adb9489}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="oclbasic.h">
@@ -78,12 +84,6 @@
     <ClInclude Include="BVH\bvh.h">
       <Filter>BVH</Filter>
     </ClInclude>
-    <ClInclude Include="BVH\treeletBVH.h">
-      <Filter>BVH</Filter>
-    </ClInclude>
-    <ClInclude Include="BVH\hlbvh.h">
-      <Filter>BVH</Filter>
-    </ClInclude>
     <ClInclude Include="stb_image_write.h">
       <Filter>Auxiliary\stb_image</Filter>
     </ClInclude>
@@ -98,6 +98,12 @@
     </ClInclude>
     <ClInclude Include="auxiliary.h">
       <Filter>Auxiliary</Filter>
+    </ClInclude>
+    <ClInclude Include="BVH\hlbvh.h">
+      <Filter>BVH\HLBVH</Filter>
+    </ClInclude>
+    <ClInclude Include="BVH\treeletBVH.h">
+      <Filter>BVH\TreeletBVH</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -128,12 +134,6 @@
     <ClCompile Include="BVH\bvh.cpp">
       <Filter>BVH</Filter>
     </ClCompile>
-    <ClCompile Include="BVH\treeletBVH.cpp">
-      <Filter>BVH</Filter>
-    </ClCompile>
-    <ClCompile Include="BVH\hlbvh.cpp">
-      <Filter>BVH</Filter>
-    </ClCompile>
     <ClCompile Include="stb_image_write.cpp">
       <Filter>Auxiliary\stb_image</Filter>
     </ClCompile>
@@ -148,6 +148,12 @@
     </ClCompile>
     <ClCompile Include="auxiliary.cpp">
       <Filter>Auxiliary</Filter>
+    </ClCompile>
+    <ClCompile Include="BVH\hlbvh.cpp">
+      <Filter>BVH\HLBVH</Filter>
+    </ClCompile>
+    <ClCompile Include="BVH\treeletBVH.cpp">
+      <Filter>BVH\TreeletBVH</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -169,6 +175,12 @@
     </None>
     <None Include="kernels\history.cl">
       <Filter>OutColor</Filter>
+    </None>
+    <None Include="kernels\treeletBVH.cl">
+      <Filter>BVH\TreeletBVH</Filter>
+    </None>
+    <None Include="kernels\EPO.cl">
+      <Filter>BVHTester</Filter>
     </None>
   </ItemGroup>
 </Project>

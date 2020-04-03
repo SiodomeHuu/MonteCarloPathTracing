@@ -19,7 +19,7 @@ constexpr int TOTAL_BIT = (1 << MAX_NODE) - 1; //0x0000007F;
 namespace {
 
 	std::vector<float> SAHValue;
-
+	float rootArea;
 
 
 
@@ -51,6 +51,7 @@ namespace {
 			pq.pop_back();
 
 			if (maxNode.value < 0.0f) {
+				pq.push_back({ maxNodeID,-1.0f });
 				break;  // all nodes are already leaves
 			}
 
@@ -58,8 +59,9 @@ namespace {
 			auto rid = bvh[maxNodeID].right;
 			
 			if (lid == rid) {
-				pq.push_back({ maxNodeID,-1.0f });
+				pq.push_back({ maxNodeID,maxNodeID*(-1.0f) });
 				std::push_heap(pq.begin(), pq.end());
+				continue;
 			} // if leaf and max, put to back
 			else {
 				pq.push_back({ lid,SAHValue[lid] });
@@ -78,7 +80,6 @@ namespace {
 			return;
 		}
 		else if (pq.size() < MAX_NODE) { // now there're bugs when pq.size()<MAX_NODE, wait for debugging
-			return;
 			NOW_NODE = pq.size();
 			NOW_TOTAL_BIT = (1 << NOW_NODE) - 1;
 		}
@@ -205,6 +206,7 @@ namespace {
 		}
 
 		// then reconstruct tree
+		// TODO: still get some bugs
 		{
 			auto Count1Num = [](int x) -> int {
 				int ans = 0;
@@ -285,6 +287,9 @@ namespace {
 				auto& node = bvh[freeBVHNode[i]];
 				node.bbmax = max(bvh[node.left].bbmax, bvh[node.right].bbmax);
 				node.bbmin = min(bvh[node.left].bbmin, bvh[node.right].bbmin);
+
+				SAHValue[ freeBVHNode[i] ] = SAHValue[node.left] + SAHValue[node.right] +
+					Cinn * (AREA(bvh[freeBVHNode[i]].bbmin, bvh[freeBVHNode[i]].bbmax)) / rootArea;
 			}
 		}
 
@@ -328,39 +333,34 @@ TreeletBVH<CPU>::TreeletBVH(const std::vector<BVHNode>& bvh)
 {
 	SAHValue.clear();
 	getInformation(bvhnode);
+	::rootArea = AREA(bvh[0].bbmin, bvh[0].bbmax);
 
-	std::unordered_set<int> flag;
+	/*std::unordered_set<int> flag;
 	std::unordered_set<int> toReconstruct;
-	std::unordered_set<int> temp;
+	std::unordered_set<int> temp;*/
 
-	for (int i = bvh.size() / 2; i < bvh.size(); ++i) {
-		toReconstruct.insert(bvh[i].parent);
-	}
-	for (auto i : toReconstruct) {
-		temp.insert(bvh[i].parent);
-	}
-	toReconstruct = std::move(temp);
-	temp.clear();
-	// above: because we usually need 7 nodes to reconstruct
-	// so the leaves & the parents of leaves are skipped
+	std::vector<int> flag;
 
-	int count = 0;
+	flag.resize(bvh.size() >> 1);
 
-	while (!toReconstruct.empty()) {
-		for (auto i : toReconstruct) {
-			if (i != -1) {
-				reconstructTreelet(bvhnode, i);
-				auto x = bvh[i].parent;
-				
-				auto pair = flag.emplace(x);
-				if (!pair.second) {
-					temp.insert(x);
-				}
+	for (int i = (bvh.size() >> 1); i < bvh.size(); ++i) {
+
+		//reconstructTreelet(bvhnode, i);
+		// Maybe some splits can take here
+
+		auto nowParent = bvh[i].parent;
+		while (nowParent != -1) {
+			if (!flag[nowParent]) { // another child not ready
+				flag[nowParent] = 1;
+				break;
+			}
+			else {
+				reconstructTreelet(bvhnode, nowParent);
+				nowParent = bvh[nowParent].parent;
 			}
 		}
-		toReconstruct = std::move(temp);
-		temp.clear();
 	}
+
 }
 
 TreeletBVH<CPU>::TreeletBVH(std::vector<BVHNode>&& bvh)
@@ -377,3 +377,29 @@ std::vector<BVHNode>&& MCPT::BVH::TreeletBVH<CPU>::releaseBVH()
 	return std::move(bvhnode);
 }
 
+
+/*
+
+	Below : GPU TreeletBVH
+
+*/
+
+
+
+
+
+namespace {
+
+}
+
+
+
+TreeletBVH<GPU>::TreeletBVH(std::pair<cl::Buffer, cl::Buffer> bvh) {
+	bvhNode = bvh.first;
+	objectNode = bvh.second;
+
+}
+
+std::pair<cl::Buffer,cl::Buffer> TreeletBVH<GPU>::getBuffer() {
+	return { bvhNode,objectNode };
+}

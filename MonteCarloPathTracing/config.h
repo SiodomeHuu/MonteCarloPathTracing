@@ -24,4 +24,6 @@ namespace MCPT::Config {
 	int MAXATTEPMT();
 
 	bool TESTBVH();
+	bool TESTALL();
+	std::string BVHTYPE();
 }

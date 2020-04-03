@@ -9,8 +9,10 @@
 using namespace MCPT;
 
 int main(int argc,char** argv) {
-
-	if (Config::TESTBVH()) {
+	if (Config::TESTALL()) {
+		BVH::TEST::testall();
+	}
+	else if (Config::TESTBVH()) {
 		BVH::TEST::test();
 		return 0;
 	}

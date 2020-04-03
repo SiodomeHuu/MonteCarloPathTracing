@@ -5,6 +5,8 @@
 #include<sstream>
 #include <windows.h>
 
+#include "config.h"
+
 using namespace MCPT;
 
 cl::Context OpenCLBasic::context;
@@ -74,7 +76,7 @@ void OpenCLBasic::init() {
 	if (has_init) return;
 	cl::Platform::get(&platforms);
 
-	for (auto& plat : platforms) {
+	/*for (auto& plat : platforms) {
 		std::vector<cl::Device> td;
 		plat.getDevices(CL_DEVICE_TYPE_ALL, &td);
 		for (auto& dd : td) {
@@ -82,7 +84,7 @@ void OpenCLBasic::init() {
 			std::cout << std::endl;
 		}
 		std::cout << std::endl << std::endl;
-	}
+	}*/
 
 	for (auto& plat : platforms) {
 #ifdef PT_USE_NVIDIA
@@ -96,14 +98,19 @@ void OpenCLBasic::init() {
 
 
 #if (defined PT_OPENGL_COOP) && (defined PT_USE_NVIDIA)
-			cl_context_properties props[] =
-			{
-				CL_GL_CONTEXT_KHR, (cl_context_properties)wglGetCurrentContext(),
-				CL_WGL_HDC_KHR, (cl_context_properties)wglGetCurrentDC(),
-				CL_CONTEXT_PLATFORM, (cl_context_properties)plat(),
-				0
-			};
-			context = cl::Context(devices[0], props);
+			if (Config::TESTBVH()) {
+				context = cl::Context(devices[0]);
+			}
+			else {
+				cl_context_properties props[] =
+				{
+					CL_GL_CONTEXT_KHR, (cl_context_properties)wglGetCurrentContext(),
+					CL_WGL_HDC_KHR, (cl_context_properties)wglGetCurrentDC(),
+					CL_CONTEXT_PLATFORM, (cl_context_properties)plat(),
+					0
+				};
+				context = cl::Context(devices[0], props);
+			}
 #else
 			context = cl::Context(devices[0]);
 #endif

@@ -22,6 +22,8 @@ namespace {
 	std::unique_ptr< BVH::HLBVH<BVH::CPU> > pt;
 	std::unique_ptr< BVH::TreeletBVH<BVH::CPU> > pt2;
 
+	std::unique_ptr< BVH::CPUBVH > bvhpt;
+
 	cl::Buffer trBuffer;
 	cl::Buffer matBuffer;
 	cl::Buffer matIDBuffer;
@@ -58,17 +60,25 @@ SceneCL::SceneCL(std::vector<MCPT::Triangle> tr, std::vector<MCPT::Material> mat
 		tr.materialID.w = matIndices[i];
 	}
 
-	pt = std::make_unique<BVH::HLBVH<BVH::CPU>>( BVH::HLBVH<BVH::CPU>(triangles) );
+	
 
-	auto hlbvh = pt->getBVH();
-	pt2 = std::make_unique< BVH::TreeletBVH<BVH::CPU> >(hlbvh);
-	auto treelet = pt2->getBVH();
+	auto bvhtype = Config::BVHTYPE();
+	if (bvhtype == "hlbvh") {
+		bvhpt = std::make_unique<BVH::HLBVH<BVH::CPU>>(BVH::HLBVH<BVH::CPU>(triangles));
+	}
+	else if (bvhtype == "treelet") {
+		auto temp = std::make_unique<BVH::HLBVH<BVH::CPU>>(BVH::HLBVH<BVH::CPU>(triangles));
+		bvhpt = std::make_unique< BVH::TreeletBVH<BVH::CPU> >(temp->releaseBVH());
+	}
+	else {
+		throw "BVH Not Implemented";
+	}
 
+	auto bvh = bvhpt->getBVH();
 
 	trBuffer = OpenCLBasic::newBuffer<Triangle>(triangles.size(), triangles.data());
 	matBuffer = OpenCLBasic::newBuffer<Material>(materials.size(), materials.data());
-	//bvhBuffer = OpenCLBasic::newBuffer<BVHNode>(hlbvh.size(), hlbvh.data());
-	bvhBuffer = OpenCLBasic::newBuffer<BVHNode>(hlbvh.size(), treelet.data());
+	bvhBuffer = OpenCLBasic::newBuffer<BVHNode>(bvh.size(), bvh.data());
 	matIDBuffer = OpenCLBasic::newBuffer<int>(matIndices.size(), matIndices.data());
 	
 

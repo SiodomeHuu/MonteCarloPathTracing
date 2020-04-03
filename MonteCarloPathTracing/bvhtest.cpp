@@ -86,6 +86,27 @@ namespace {
 
 
 
+namespace {
+	std::string dir = "../Scene2/";
+	std::vector<std::string> models = {
+		"bmw.obj",
+		"spaceship_new.obj",
+		"coffee_maker.obj",
+		"warriors.obj",
+		"dragon.obj", //4
+		"sponza.obj",
+		//no miguel
+		"sibenik.obj",
+		"budda.obj" }; //7
+
+
+	cl::Program prog;
+	cl::Kernel kernel;
+
+}
+
+
+
 
 
 
@@ -93,7 +114,7 @@ namespace {
 namespace MCPT::BVH::TEST {
 
 	float SAH(const std::vector<BVHNode>& node) {
-		float sahAns = 0.0f;
+		double sahAns = 0.0f;
 		for (size_t i = 0; i < (node.size() >> 1); ++i) {
 			sahAns += Cinn * AREA(node[i].bbmin,node[i].bbmax);
 		}
@@ -105,7 +126,8 @@ namespace MCPT::BVH::TEST {
 		return sahAns;
 	}
 	
-
+	std::vector<float> epoTValue;
+	std::vector<float> bgData;
 
 	float EPO(const std::vector<BVHNode>& node, const std::vector<Triangle>& triangles) {
 		float EPO = 0.0f;
@@ -114,7 +136,6 @@ namespace MCPT::BVH::TEST {
 		auto GETGEO = [&](size_t leafID) -> const Triangle& {
 			return triangles[node[leafID].left];
 		};
-
 		
 		auto POINTINBOX = [](const cl_float4& p, const BoundingBox& box) -> bool {
 			if ((p.x >= box.bbmin.x && p.x <= box.bbmax.x)
@@ -125,21 +146,15 @@ namespace MCPT::BVH::TEST {
 			}
 			return false;
 		};
-		auto TRIANGLEAREA = [](const Triangle& geo) -> double {
+		auto TRIANGLEAREA = [](const Triangle& geo) -> float {
 			return len(cross(geo.v[1] - geo.v[0], geo.v[2] - geo.v[0])) / 2;
 		};
-
-
 
 		auto ROUNDTR = [](std::vector<cl_float4>& points, int axis, float pos, int sign) -> void {
 			std::vector<cl_float4> ans;
 			std::vector<int> inside;
 
 			float tans;
-
-			cl_float4 normal = { 0 };
-			normal.s[axis] = sign;
-			normal.w = -sign;
 
 			if (sign > 0) {
 				for (auto& p : points) {
@@ -151,6 +166,7 @@ namespace MCPT::BVH::TEST {
 					inside.push_back(p.s[axis] <= pos);
 				}
 			}
+			if (points.empty()) return;
 			for (int i = 0; i < points.size(); ++i) {
 				auto i_1 = (i + 1 == points.size()) ? (0) : (i + 1);
 				if (!inside[i] && !inside[i_1]) {
@@ -160,26 +176,32 @@ namespace MCPT::BVH::TEST {
 					ans.push_back(points[i]);
 					continue;
 				}
-				cl_float4 direction = points[i_1] - points[i];
-				tans = (pos - points[i].s[axis]) / direction.s[axis];
-				ans.push_back(points[i] + tans * direction);
+				else {
+					if (inside[i]) {
+						ans.push_back(points[i]);
+					}
+					cl_float4 direction = points[i_1] - points[i];
+					tans = (pos - points[i].s[axis]) / direction.s[axis];
+					ans.push_back(points[i] + tans * direction);
+				}
 			}
+
 			points.swap(ans);
 		};
 		auto pArea = [](const std::vector<cl_float4>& points) -> float {
-			double ans = 0.0f;
+			float ans = 0.0f;
 			int sz = points.size();
 			if (sz < 2) {
 				return ans;
 			}
-			for (int i = 1; i < sz - 2; ++i) {
+			for (int i = 1; i < sz - 1; ++i) {
 				auto x1 = points[i] - points[0];
 				auto x2 = points[i + 1] - points[0];
 				ans += len(cross(x1, x2)) / 2;
 			}
 			return ans;
 		};
-		auto INTERSECTAREA = [&](const Triangle& geo, BoundingBox& box) -> double {
+		auto INTERSECTAREA = [&](const Triangle& geo, BoundingBox& box) -> float {
 			Triangle tr = geo;
 			tr.v[0].w = 1;
 			tr.v[1].w = 1;
@@ -195,9 +217,7 @@ namespace MCPT::BVH::TEST {
 			}
 
 			std::vector< cl_float4 > points = { tr.v[0],tr.v[1],tr.v[2] };
-			cl_float4 normal = cross(tr.v[1] - tr.v[0], tr.v[2] - tr.v[0]);
-			normal.w = 0;
-			normal.w = -dot(normal, tr.v[0]);
+			
 
 			ROUNDTR(points, 0, box.bbmin.x, 1);
 			ROUNDTR(points, 1, box.bbmin.y, 1);
@@ -216,8 +236,9 @@ namespace MCPT::BVH::TEST {
 			auto box = BoundingBox({ node[rootID].bbmin,node[rootID].bbmax });
 
 			if (ancestor.find(rootID) == ancestor.end()) {
-				double epovalue = INTERSECTAREA(geo, box);
+				float epovalue = INTERSECTAREA(geo, box);
 				if (epovalue > 0) {
+
 					EPO += epovalue * ((rootID >= (node.size() >> 1)) ? Ctri : Cinn); // / AREA2(box);   // / areas[rootID];
 
 					if (node[rootID].left != node[rootID].right) {
@@ -234,8 +255,12 @@ namespace MCPT::BVH::TEST {
 			}
 		};
 
+		float percent = 0.05f;
+		float step = 0.05f;
+		int sz = (node.size() >> 1);
 
-		for (size_t i = (node.size() >> 1); i < node.size(); ++i) {
+		float prevEPO = 0.0f;
+		for (size_t i = sz; i < node.size(); ++i) {
 			ancestor.insert(i);
 
 			size_t j = i;
@@ -250,19 +275,62 @@ namespace MCPT::BVH::TEST {
 				toBeDone.pop_front();
 				TopDown(i, front);
 			}
+
+			epoTValue.push_back(EPO - prevEPO);
+			prevEPO = EPO;
+
 			ancestor.clear();
+			
+			if ((i - sz) > (sz + 1) * percent) {
+				std::cout << "Now EPO Test: " << (i - sz) << std::endl;
+				percent += step;
+			}
 		}
+		std::cout << "epo total " << EPO << std::endl;
 
-
-		double totalAREA = 0.0;
+		float totalAREA = 0.0;
 		for (size_t i = (node.size() >> 1); i < node.size(); ++i) {
 			totalAREA += TRIANGLEAREA(GETGEO(i));
 		}
 		EPO /= totalAREA;
+		std::cout << "Total Area: " << totalAREA << std::endl;
 		return EPO;
 	}
 
+	float EPO_GPU(cl::Buffer bvh, cl::Buffer triangles) {
+		static auto initer = []() {
+			prog = OpenCLBasic::createProgramFromFileWithHeader("./kernels/EPO.cl", "objdef.h");
+			kernel = OpenCLBasic::createKernel(prog, "calculateEPO");
+			return 0;
+		}();
 
+		int triCount = triangles.getInfo<CL_MEM_SIZE>() / sizeof(Triangle);
+		cl::Buffer epoBuffer = OpenCLBasic::newBuffer<float>(triCount);
+		cl::Buffer triAreaBuffer = OpenCLBasic::newBuffer<float>(triCount);
+
+		OpenCLBasic::setKernelArg(kernel, bvh, triangles, epoBuffer, triAreaBuffer, triCount);
+		OpenCLBasic::enqueueNDRange(kernel, triCount, cl::NullRange);
+
+		std::vector<float> epoAns;
+		std::vector<float> areaAns;
+		epoAns.resize(triCount);
+		areaAns.resize(triCount);
+		OpenCLBasic::readBuffer(epoBuffer, epoAns.data());
+		OpenCLBasic::readBuffer(triAreaBuffer, areaAns.data());
+
+
+		float count = 0.0;
+		for (int i = 0; i < epoAns.size(); ++i) {
+			count += epoAns[i];
+		}
+		float area = 0.0;
+		for (int i = 0; i < areaAns.size(); ++i) {
+			area += areaAns[i];
+		}
+		std::cout << "GPU: " << count << " " << area << std::endl;
+		count /= area;
+		return count;
+	}
 
 
 	float LCV(const std::vector<BVHNode>& node, const Camera& camera) {
@@ -393,19 +461,39 @@ namespace MCPT::BVH::TEST {
 		auto directory = Config::GETDIRECTORY();
 		auto objname = Config::GETOBJNAME();
 
-		std::cout << objname << std::endl;
 
 		auto triangles = loadObj(directory, objname);
+		std::cout << objname << " " << triangles.size() << std::endl;
 
-		auto p = std::make_unique< HLBVH<CPU> >(triangles);
-		auto p2 = std::make_unique< TreeletBVH<CPU> >(p->releaseBVH());
 
-		auto node = p2->getBVH();
 
+		auto bvhtype = Config::BVHTYPE();
+		std::unique_ptr< CPUBVH > bvh;
+		if (bvhtype == "hlbvh") {
+			bvh = std::make_unique< HLBVH<CPU> >(triangles);
+		}
+		else if (bvhtype == "treelet") {
+			auto p = std::make_unique< HLBVH<CPU> >(triangles);
+			bvh = std::make_unique< TreeletBVH<CPU> >(p->releaseBVH());
+		}
+		
+
+		std::cout << bvhtype << std::endl;
+		auto& node = bvh->getBVH();
 		auto sah = SAH(node);
 		std::cout << "SAH: " << sah << std::endl;
-		auto epo = EPO(node, triangles);
-		std::cout << "EPO: " << epo << std::endl;
+
+		/*auto epo = EPO(node, triangles);
+		std::cout << "EPO: " << epo << std::endl;*/
+
+
+		OpenCLBasic::init();
+		cl::Buffer bvhB = OpenCLBasic::newBuffer<BVHNode>(node.size(), const_cast<BVHNode*>( node.data() ) );
+		cl::Buffer triB = OpenCLBasic::newBuffer<Triangle>(triangles.size(), const_cast<Triangle*>(triangles.data()));
+
+		auto epogpu = EPO_GPU(bvhB, triB);
+		std::cout << "EPO_GPU: " << epogpu << std::endl;
+
 
 		auto camerajson = Config::GETCAMERA();
 		if (!camerajson.empty()) {
@@ -414,6 +502,34 @@ namespace MCPT::BVH::TEST {
 			std::cout << "LCV: " << lcv << std::endl;
 		}
 		return;
+	}
+
+
+
+	void testall() {
+		for (const auto& model : models) {
+			std::cout << model << std::endl;
+			auto triangles = loadObj(dir, model);
+
+			auto p = std::make_unique< HLBVH<CPU> >(triangles);
+			auto p2 = std::make_unique< TreeletBVH<CPU> >(p->releaseBVH());
+
+			//auto node = p->getBVH();
+			auto node = p2->getBVH();
+
+			auto sah = SAH(node);
+			std::cout << "SAH: " << sah << std::endl;
+			auto epo = EPO(node, triangles);
+			std::cout << "EPO: " << epo << std::endl;
+
+			/*auto camerajson = Config::GETCAMERA();
+			if (!camerajson.empty()) {
+				auto camera = Auxiliary::parseCamera(camerajson);
+				auto lcv = LCV(node, camera);
+				std::cout << "LCV: " << lcv << std::endl;
+			}*/
+		}
+
 	}
 }
 
