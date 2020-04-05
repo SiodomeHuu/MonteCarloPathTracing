@@ -319,15 +319,15 @@ namespace MCPT::BVH::TEST {
 		OpenCLBasic::readBuffer(triAreaBuffer, areaAns.data());
 
 
-		float count = 0.0;
+		double count = 0.0;
 		for (int i = 0; i < epoAns.size(); ++i) {
 			count += epoAns[i];
 		}
-		float area = 0.0;
+		double area = 0.0;
 		for (int i = 0; i < areaAns.size(); ++i) {
 			area += areaAns[i];
 		}
-		std::cout << "GPU: " << count << " " << area << std::endl;
+		//std::cout << "GPU: " << count << " " << area << std::endl;
 		count /= area;
 		return count;
 	}
@@ -507,6 +507,7 @@ namespace MCPT::BVH::TEST {
 
 
 	void testall() {
+		OpenCLBasic::init();
 		for (const auto& model : models) {
 			std::cout << model << std::endl;
 			auto triangles = loadObj(dir, model);
@@ -519,7 +520,13 @@ namespace MCPT::BVH::TEST {
 
 			auto sah = SAH(node);
 			std::cout << "SAH: " << sah << std::endl;
-			auto epo = EPO(node, triangles);
+
+			
+			cl::Buffer bvhB = OpenCLBasic::newBuffer<BVHNode>(node.size(), const_cast<BVHNode*>(node.data()));
+			cl::Buffer triB = OpenCLBasic::newBuffer<Triangle>(triangles.size(), const_cast<Triangle*>(triangles.data()));
+
+			//auto epo = EPO(node, triangles);
+			auto epo = EPO_GPU(bvhB, triB);
 			std::cout << "EPO: " << epo << std::endl;
 
 			/*auto camerajson = Config::GETCAMERA();

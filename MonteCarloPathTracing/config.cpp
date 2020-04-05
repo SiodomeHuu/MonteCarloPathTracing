@@ -82,6 +82,10 @@ namespace {
 
 			config = configs[configID];
 
+			testAll = tryRead<bool>(config, "testall");
+			if (testAll) {
+				return;
+			}
 
 
 			camera = tryRead<json>(config, "camera");
@@ -96,10 +100,7 @@ namespace {
 				bvhType = "hlbvh";
 			}
 
-			testAll = tryRead<bool>(config, "testall");
-			if (testAll) {
-				return;
-			}
+			
 			testBVH = tryRead<bool>(config, "testbvh");
 			if (testBVH) {
 				return;

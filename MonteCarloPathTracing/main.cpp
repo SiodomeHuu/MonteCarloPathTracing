@@ -11,6 +11,7 @@ using namespace MCPT;
 int main(int argc,char** argv) {
 	if (Config::TESTALL()) {
 		BVH::TEST::testall();
+		return 0;
 	}
 	else if (Config::TESTBVH()) {
 		BVH::TEST::test();

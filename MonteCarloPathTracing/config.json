@@ -87,6 +87,7 @@
       "testbvh": true,
       "directory": "../Scene2/",
       "objname": "hairball.obj",
+      #"bvhtype" :  "treelet",
 
       "width": 1600,
       "height": 900,
@@ -132,8 +133,11 @@
       #  "fov": 39.3077,
       #  "resolution": [ 512, 512 ]
       # }
+    },
+
+    {
+      "testall" :  true
     }
-    
   ],
-  "configid" :  3
+  "configid" :  1
 }

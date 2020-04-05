@@ -98,7 +98,7 @@ void OpenCLBasic::init() {
 
 
 #if (defined PT_OPENGL_COOP) && (defined PT_USE_NVIDIA)
-			if (Config::TESTBVH()) {
+			if (Config::TESTBVH() || Config::TESTALL()) {
 				context = cl::Context(devices[0]);
 			}
 			else {
@@ -146,8 +146,8 @@ cl::Program OpenCLBasic::createProgram(const std::string& code, std::string opti
 		std::cout << log;
 		return cl::Program();
 	}
-	std::string log = program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(devices[0]);
-	std::cout << log;
+	//std::string log = program.getBuildInfo<CL_PROGRAM_BUILD_LOG>(devices[0]);
+	//std::cout << log;
 	return program;
 }
 
