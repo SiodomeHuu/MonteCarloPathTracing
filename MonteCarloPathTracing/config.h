@@ -17,6 +17,7 @@ namespace MCPT::Config {
 
 	std::string GETDIRECTORY();
 	std::string GETOBJNAME();
+	nlohmann::json GETOBJS();
 
 	std::string INTERSECTKERNELPATH();
 	std::string SHADEKERNELPATH();

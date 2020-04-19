@@ -6,6 +6,7 @@
 # specific files
 *.hdr
 /Scene2/
+/TEMPMODEL/
 
 
 # User-specific files

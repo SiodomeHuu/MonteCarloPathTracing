@@ -1,7 +1,7 @@
 {
   "config": [
     {
-      "bvhtype": "treelet",
+      "bvhtype": "treeletGPU",
       "width": 512,
       "height": 512,
       "platform": "nvidia",
@@ -29,7 +29,7 @@
     },
 
     {
-      "bvhtype": "treelet",
+      "bvhtype": "treeletGPU",
       "width": 768,
       "height": 512,
       "platform": "nvidia",
@@ -56,7 +56,7 @@
     },
 
     {
-      "bvhtype": "treelet",
+      "bvhtype": "treeletGPU",
       "width": 1280,
       "height": 720,
       "platform": "nvidia",
@@ -98,7 +98,7 @@
      #   "fov": 60,
      #   "resolution": [ 1280, 720 ]
      # }
-    },
+    }, # 3
 
     {
       "testbvh": true,
@@ -136,8 +136,61 @@
     },
 
     {
-      "testall" :  true
+      "testbvh": true,
+      "bvhtype" :  "treeletGPU",
+      "width": 768,
+      "height": 512,
+
+      "directory": "../Scene/veach_mis/",
+      "objname": "mis.obj"
+
+      # "camera": {
+      #  "position": [ 278, 273, -800 ],
+      #  "lookat": [ 278, 273, -799 ],
+      #  "up": [ 0, 1, 0 ],
+      #  "fov": 39.3077,
+      #  "resolution": [ 512, 512 ]
+      # }
+    },
+
+
+    {
+      "testall": true,
+      "directory": "../Scene2/",
+      "bvhtype" :  "treeletGPU",
+      "objname": [
+        "bmw.obj",
+        "spaceship_new.obj",
+        "coffee_maker.obj",
+        "warriors.obj",
+        "dragon.obj",
+        "sponza.obj",
+        "sibenik.obj",
+        "budda.obj",
+        "conference.obj",
+        "dragon-simple.obj",
+        "powerplant.obj",
+        "san-miguel.obj"
+      ]
+    }, # 7
+    {
+      "testall": true,
+      "directory": "../Scene2/",
+      "bvhtype": "treeletGPU",
+      "objname": [
+        "san-miguel.obj",
+        "hairball.obj"
+      ]
+    },
+    {
+      "testall": true,
+      "directory": "../Scene2/",
+      "bvhtype": "treeletGPU",
+      "objname": [
+        "powerplant.obj"
+      ]
     }
+  
   ],
-  "configid" :  1
+  "configid" : 9
 }

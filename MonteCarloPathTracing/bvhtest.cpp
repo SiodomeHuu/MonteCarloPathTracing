@@ -87,18 +87,6 @@ namespace {
 
 
 namespace {
-	std::string dir = "../Scene2/";
-	std::vector<std::string> models = {
-		"bmw.obj",
-		"spaceship_new.obj",
-		"coffee_maker.obj",
-		"warriors.obj",
-		"dragon.obj", //4
-		"sponza.obj",
-		//no miguel
-		"sibenik.obj",
-		"budda.obj" }; //7
-
 
 	cl::Program prog;
 	cl::Kernel kernel;
@@ -469,6 +457,8 @@ namespace MCPT::BVH::TEST {
 
 		auto bvhtype = Config::BVHTYPE();
 		std::unique_ptr< CPUBVH > bvh;
+		std::cout << bvhtype << std::endl;
+
 		if (bvhtype == "hlbvh") {
 			bvh = std::make_unique< HLBVH<CPU> >(triangles);
 		}
@@ -476,65 +466,184 @@ namespace MCPT::BVH::TEST {
 			auto p = std::make_unique< HLBVH<CPU> >(triangles);
 			bvh = std::make_unique< TreeletBVH<CPU> >(p->releaseBVH());
 		}
-		
-
-		std::cout << bvhtype << std::endl;
-		auto& node = bvh->getBVH();
-		auto sah = SAH(node);
-		std::cout << "SAH: " << sah << std::endl;
-
-		/*auto epo = EPO(node, triangles);
-		std::cout << "EPO: " << epo << std::endl;*/
-
-
-		OpenCLBasic::init();
-		cl::Buffer bvhB = OpenCLBasic::newBuffer<BVHNode>(node.size(), const_cast<BVHNode*>( node.data() ) );
-		cl::Buffer triB = OpenCLBasic::newBuffer<Triangle>(triangles.size(), const_cast<Triangle*>(triangles.data()));
-
-		auto epogpu = EPO_GPU(bvhB, triB);
-		std::cout << "EPO_GPU: " << epogpu << std::endl;
-
-
-		auto camerajson = Config::GETCAMERA();
-		if (!camerajson.empty()) {
-			auto camera = Auxiliary::parseCamera(camerajson);
-			auto lcv = LCV(node, camera);
-			std::cout << "LCV: " << lcv << std::endl;
+		else if (bvhtype == "treeletGPU") {
+			goto GPUBVH;
 		}
-		return;
-	}
 
-
-
-	void testall() {
-		OpenCLBasic::init();
-		for (const auto& model : models) {
-			std::cout << model << std::endl;
-			auto triangles = loadObj(dir, model);
-
-			auto p = std::make_unique< HLBVH<CPU> >(triangles);
-			auto p2 = std::make_unique< TreeletBVH<CPU> >(p->releaseBVH());
-
-			//auto node = p->getBVH();
-			auto node = p2->getBVH();
-
+		{
+			auto& node = bvh->getBVH();
 			auto sah = SAH(node);
 			std::cout << "SAH: " << sah << std::endl;
 
-			
+			/*auto epo = EPO(node, triangles);
+			std::cout << "EPO: " << epo << std::endl;*/
+
+
+			OpenCLBasic::init();
 			cl::Buffer bvhB = OpenCLBasic::newBuffer<BVHNode>(node.size(), const_cast<BVHNode*>(node.data()));
 			cl::Buffer triB = OpenCLBasic::newBuffer<Triangle>(triangles.size(), const_cast<Triangle*>(triangles.data()));
 
-			//auto epo = EPO(node, triangles);
-			auto epo = EPO_GPU(bvhB, triB);
-			std::cout << "EPO: " << epo << std::endl;
+			auto epogpu = EPO_GPU(bvhB, triB);
+			std::cout << "EPO_GPU: " << epogpu << std::endl;
 
-			/*auto camerajson = Config::GETCAMERA();
+
+			auto camerajson = Config::GETCAMERA();
 			if (!camerajson.empty()) {
 				auto camera = Auxiliary::parseCamera(camerajson);
 				auto lcv = LCV(node, camera);
 				std::cout << "LCV: " << lcv << std::endl;
-			}*/
+			}
+			return;
+		}
+
+
+		// GPU Part
+	GPUBVH:
+		{
+			OpenCLBasic::init();
+
+			auto p = std::make_unique< HLBVH<CPU> >(triangles);
+			auto node = p->releaseBVH();
+
+			cl::Buffer bvhB = OpenCLBasic::newBuffer<BVHNode>(node.size(), const_cast<BVHNode*>(node.data()));
+			cl::Buffer triB = OpenCLBasic::newBuffer<Triangle>(triangles.size(), const_cast<Triangle*>(triangles.data()));
+
+			auto gpubvh = std::make_unique< TreeletBVH<GPU> >(bvhB, triB);
+
+			OpenCLBasic::readBuffer(gpubvh->getBuffer().first, node.data());
+			auto sah = SAH(node);
+			std::cout << "SAH: " << sah << std::endl;
+
+			auto tri = OpenCLBasic::readBuffer<Triangle>(triB);
+			//auto epo = EPO(node, tri);
+			//std::cout << "EPO" << epo << std::endl;
+			auto epogpu = EPO_GPU(gpubvh->getBuffer().first, gpubvh->getBuffer().second);
+			std::cout << "EPO_GPU: " << epogpu << std::endl;
+
+			auto camerajson = Config::GETCAMERA();
+			if (!camerajson.empty()) {
+				auto camera = Auxiliary::parseCamera(camerajson);
+				auto lcv = LCV(node, camera);
+				std::cout << "LCV: " << lcv << std::endl;
+			}
+		}
+	}
+
+
+	void testmodel(const std::string & objname, json camerajson) {
+		auto directory = Config::GETDIRECTORY();
+
+
+		auto triangles = loadObj(directory, objname);
+		std::cout << objname << " " << triangles.size() << std::endl;
+
+
+		auto bvhtype = Config::BVHTYPE();
+		std::unique_ptr< CPUBVH > bvh;
+		std::cout << bvhtype << std::endl;
+
+		if (bvhtype == "hlbvh") {
+			bvh = std::make_unique< HLBVH<CPU> >(triangles);
+		}
+		else if (bvhtype == "treelet") {
+			auto p = std::make_unique< HLBVH<CPU> >(triangles);
+			bvh = std::make_unique< TreeletBVH<CPU> >(p->releaseBVH());
+		}
+		else if (bvhtype == "treeletGPU") {
+			goto GPUBVH;
+		}
+
+		{
+			auto& node = bvh->getBVH();
+			auto sah = SAH(node);
+			std::cout << "SAH: " << sah << std::endl;
+
+			/*auto epo = EPO(node, triangles);
+			std::cout << "EPO: " << epo << std::endl;*/
+
+
+			OpenCLBasic::init();
+			cl::Buffer bvhB = OpenCLBasic::newBuffer<BVHNode>(node.size(), const_cast<BVHNode*>(node.data()));
+			cl::Buffer triB = OpenCLBasic::newBuffer<Triangle>(triangles.size(), const_cast<Triangle*>(triangles.data()));
+
+			auto epogpu = EPO_GPU(bvhB, triB);
+			std::cout << "EPO_GPU: " << epogpu << std::endl;
+
+			if (!camerajson.empty()) {
+				auto camera = Auxiliary::parseCamera(camerajson);
+				auto lcv = LCV(node, camera);
+				std::cout << "LCV: " << lcv << std::endl;
+			}
+			return;
+		}
+
+
+		// GPU Part
+	GPUBVH:
+		{
+			OpenCLBasic::init();
+
+			auto p = std::make_unique< HLBVH<CPU> >(triangles);
+			auto node = p->releaseBVH();
+
+			cl::Buffer bvhB = OpenCLBasic::newBuffer<BVHNode>(node.size(), const_cast<BVHNode*>(node.data()));
+			cl::Buffer triB = OpenCLBasic::newBuffer<Triangle>(triangles.size(), const_cast<Triangle*>(triangles.data()));
+
+			auto gpubvh = std::make_unique< TreeletBVH<GPU> >(bvhB, triB);
+
+			OpenCLBasic::readBuffer(gpubvh->getBuffer().first, node.data());
+			auto sah = SAH(node);
+			std::cout << "SAH: " << sah << std::endl;
+
+			auto tri = OpenCLBasic::readBuffer<Triangle>(triB);
+			//auto epo = EPO(node, tri);
+			//std::cout << "EPO" << epo << std::endl;
+			auto epogpu = EPO_GPU(gpubvh->getBuffer().first, gpubvh->getBuffer().second);
+			std::cout << "EPO_GPU: " << epogpu << std::endl;
+
+			if (!camerajson.empty()) {
+				auto camera = Auxiliary::parseCamera(camerajson);
+				auto lcv = LCV(node, camera);
+				std::cout << "LCV: " << lcv << std::endl;
+			}
+		}
+	}
+
+
+	void testall() {
+		OpenCLBasic::init();
+
+		auto dir = Config::GETDIRECTORY();
+		auto objs = Config::GETOBJS();
+
+		json cmr;
+		
+		std::vector<std::string> models;
+		for (int i = 0; i < objs.size(); ++i) {
+			models.push_back(objs[i].get<std::string>());
+		}
+
+		std::vector<std::string> models1 = {
+			"bmw.obj",
+			"spaceship_new.obj",
+			"coffee_maker.obj",
+			"warriors.obj",
+			"dragon.obj", //4
+			"sponza.obj",
+			//no miguel
+			"sibenik.obj",
+			"budda.obj" }; //7
+
+		std::vector<std::string> models2 = {
+			"conference.obj",
+			"dragon-simple.obj",
+			"powerplant.obj",
+			"san-miguel.obj"
+		};
+
+		for (const auto& model : models) {
+			testmodel(model,cmr);
+			std::cout << std::endl;
 		}
 
 	}

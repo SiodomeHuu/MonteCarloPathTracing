@@ -225,8 +225,25 @@ void OpenCLBasic::enqueueWriteBuffer(const cl::Buffer& buffer, size_t offset, si
 	queue.enqueueWriteBuffer(buffer, CL_TRUE, offset, size, pt);
 }
 
-void OpenCLBasic::enqueueNDRange(cl::Kernel& kernel, cl::NDRange global, cl::NDRange local) {
-	queue.enqueueNDRangeKernel(kernel, cl::NullRange, global, local);
+void OpenCLBasic::enqueueNDRange(cl::Kernel& kernel, cl::NDRange global, cl::NDRange local, const std::vector<cl::Event>* evs, cl::Event* ev) {
+	queue.enqueueNDRangeKernel(kernel, cl::NullRange, global, local, evs, ev);
+}
+
+float MCPT::OpenCLBasic::timeCost(const cl::Event& ev, int arg) {
+	auto end = ev.getProfilingInfo<CL_PROFILING_COMMAND_END>();
+	auto start = ev.getProfilingInfo<CL_PROFILING_COMMAND_START>();
+	auto queued = ev.getProfilingInfo<CL_PROFILING_COMMAND_QUEUED>();
+	auto submit = ev.getProfilingInfo<CL_PROFILING_COMMAND_SUBMIT>();
+	
+	switch (arg) {
+	case 0: // end-start
+		return end - start;
+	case 1: // end-queued
+		return end - queued;
+	case 2:
+		return end - submit;
+	}
+	return 0.0f;
 }
 
 void OpenCLBasic::readBuffer(const cl::Buffer& buffer, void* pt) {
@@ -239,10 +256,10 @@ void OpenCLBasic::writeBuffer(const cl::Buffer& buffer, void* pt) {
 	enqueueWriteBuffer(buffer, 0, size, pt);
 }
 
-void OpenCLBasic::enqueue1DKernelWithGroupCount(cl::Kernel& kernel, size_t workGroupCount, size_t singleGroupWorkItemCount) {
+void OpenCLBasic::enqueue1DKernelWithGroupCount(cl::Kernel& kernel, size_t workGroupCount, size_t singleGroupWorkItemCount, const std::vector<cl::Event>* evs, cl::Event* ev) {
 	size_t globalSize = workGroupCount * singleGroupWorkItemCount;
 	size_t localSize = singleGroupWorkItemCount;
-	queue.enqueueNDRangeKernel(kernel, 0, globalSize, localSize);
+	queue.enqueueNDRangeKernel(kernel, 0, globalSize, localSize, evs, ev);
 }
 
 void OpenCLBasic::printDeviceInformation(cl::Device& device) {

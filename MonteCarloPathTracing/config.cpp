@@ -18,6 +18,7 @@ namespace {
 
 	std::string directory;
 	std::string objname;
+	json objs;
 
 	bool useOpencl;
 
@@ -82,8 +83,15 @@ namespace {
 
 			config = configs[configID];
 
+			bvhType = tryRead<std::string>(config, "bvhtype");
+			if (bvhType == "") {
+				bvhType = "hlbvh";
+			}
+
 			testAll = tryRead<bool>(config, "testall");
 			if (testAll) {
+				directory = config["directory"].get<std::string>();
+				objs = config["objname"];
 				return;
 			}
 
@@ -95,10 +103,7 @@ namespace {
 			width = double(config["width"]);
 			height = double(config["height"]);
 
-			bvhType = tryRead<std::string>(config, "bvhtype");
-			if (bvhType == "") {
-				bvhType = "hlbvh";
-			}
+			
 
 			
 			testBVH = tryRead<bool>(config, "testbvh");
@@ -136,5 +141,6 @@ namespace MCPT::Config {
 	RETURNFUNC(TESTBVH, testBVH);
 	RETURNFUNC(TESTALL, testAll);
 	RETURNFUNC(BVHTYPE, bvhType);
+	RETURNFUNC(GETOBJS, objs);
 }
 

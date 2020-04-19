@@ -31,8 +31,8 @@ namespace MCPT {
 		static void enqueueWriteBuffer(const cl::Buffer& buffer, size_t offset, size_t size, void* pt);
 
 
-		static void enqueueNDRange(cl::Kernel& kernel, cl::NDRange global, cl::NDRange local);
-
+		static void enqueueNDRange(cl::Kernel& kernel, cl::NDRange global, cl::NDRange local, const std::vector<cl::Event>* evs = nullptr, cl::Event* ev = nullptr);
+		static float timeCost(const cl::Event& ev, int arg = 0);
 
 		template<unsigned int COUNT, typename T>
 		static inline void setKernelArg(cl::Kernel& kn, const T& argEnd) {
@@ -78,7 +78,7 @@ namespace MCPT {
 		static void writeBuffer(const cl::Buffer& buffer, void* pt);
 
 
-		static void enqueue1DKernelWithGroupCount(cl::Kernel& kernel, size_t workGroupCount, size_t singleGroupWorkItemCount);
+		static void enqueue1DKernelWithGroupCount(cl::Kernel& kernel, size_t workGroupCount, size_t singleGroupWorkItemCount, const std::vector<cl::Event>* evs = nullptr, cl::Event* ev = nullptr);
 
 		static void printDeviceInformation(cl::Device& device);
 

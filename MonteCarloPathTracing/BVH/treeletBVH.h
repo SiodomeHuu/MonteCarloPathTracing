@@ -26,6 +26,7 @@ namespace MCPT::BVH {
 	class TreeletBVH<GPU> : public GPUBVH {
 	public:
 		TreeletBVH(std::pair<cl::Buffer, cl::Buffer> bvh);
+		TreeletBVH(cl::Buffer node, cl::Buffer tri);
 
 		virtual std::pair< cl::Buffer, cl::Buffer > getBuffer() override;
 

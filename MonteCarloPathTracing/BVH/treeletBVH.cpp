@@ -6,6 +6,8 @@
 
 #include "../auxiliary.h"
 
+#include <iostream>
+
 using namespace MCPT;
 using namespace MCPT::BVH;
 using namespace MCPT::Auxiliary;
@@ -206,7 +208,6 @@ namespace {
 		}
 
 		// then reconstruct tree
-		// TODO: still get some bugs
 		{
 			auto Count1Num = [](int x) -> int {
 				int ans = 0;
@@ -389,16 +390,54 @@ std::vector<BVHNode>&& MCPT::BVH::TreeletBVH<CPU>::releaseBVH()
 
 
 namespace {
+	cl::Program treeGPUProg;
+	cl::Kernel treeKernel;
 
+
+
+	void initProgramAndKernel() {
+		static auto initer = []() {
+			treeGPUProg = OpenCLBasic::createProgramFromFileWithHeader("./kernels/treeletBVH.cl","objdef.h");
+			treeKernel = OpenCLBasic::createKernel(treeGPUProg, "reconstructTreelet");
+			return 0;
+		}();
+	}
 }
 
 
 
-TreeletBVH<GPU>::TreeletBVH(std::pair<cl::Buffer, cl::Buffer> bvh) {
-	bvhNode = bvh.first;
-	objectNode = bvh.second;
+TreeletBVH<GPU>::TreeletBVH(std::pair<cl::Buffer, cl::Buffer> bvh)
+	: TreeletBVH(bvh.first,bvh.second)
+{}
 
+TreeletBVH<GPU>::TreeletBVH(cl::Buffer node, cl::Buffer tri) 
+	: bvhNode(node), objectNode(tri)
+{
+
+	int nodeNum = bvhNode.getInfo<CL_MEM_SIZE>() / sizeof(BVHNode);
+	int objNum = objectNode.getInfo<CL_MEM_SIZE>() / sizeof(Triangle);
+
+	initProgramAndKernel();
+
+	cl::Buffer sahV = OpenCLBasic::newBuffer<float>(nodeNum);
+	cl::Buffer flagB = OpenCLBasic::newBuffer<int>(objNum);
+
+	cl::Event ev;
+
+	try {
+		OpenCLBasic::setKernelArg(treeKernel, bvhNode, sahV, flagB, objNum);
+		OpenCLBasic::enqueue1DKernelWithGroupCount(treeKernel, objNum, 32, nullptr, &ev);
+		//OpenCLBasic::getQueue().finish();
+	}
+	catch (cl::Error & e) {
+		std::cout << "Error: " << e.err() << " " << e.what() << std::endl;
+		throw "Error";
+	}
+
+	std::cout << "Build time: " << OpenCLBasic::timeCost(ev)/1e6 << std::endl;
 }
+
+
 
 std::pair<cl::Buffer,cl::Buffer> TreeletBVH<GPU>::getBuffer() {
 	return { bvhNode,objectNode };
