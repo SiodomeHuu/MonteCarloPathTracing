@@ -244,7 +244,7 @@ __kernel void reconstructTreelet(
 
 	float rootArea = AREA(nodes[0].bbmin,nodes[0].bbmax);
 
-
+	
 	size_t groupID = get_group_id(0);
 
 	size_t lid = get_local_id(0);
@@ -255,13 +255,12 @@ __kernel void reconstructTreelet(
 		return;
 	}
 	
-	
 	if(groupID < numPrims) {
 		int idx = groupID + numPrims - 1;
 		sahValue[idx] = (Ctri + Cleaf) * AREA(nodes[idx].bbmin, nodes[idx].bbmax) / rootArea;
 		idx = nodes[idx].parent;
 
-		while(idx != -1) {
+		while(idx >= 0) {
 			if(lid == 0) {
 				int lc = nodes[idx].left;
 				int rc = nodes[idx].right;

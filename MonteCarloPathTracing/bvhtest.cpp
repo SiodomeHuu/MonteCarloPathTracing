@@ -11,6 +11,7 @@
 
 #include "BVH/hlbvh.h"
 #include "BVH/treeletBVH.h"
+#include "BVH/simpleQuad.h"
 
 #include <iostream>
 
@@ -90,7 +91,9 @@ namespace {
 
 	cl::Program prog;
 	cl::Kernel kernel;
+	cl::Kernel quadKernel;
 
+	bool programInited = false;
 }
 
 
@@ -110,6 +113,22 @@ namespace MCPT::BVH::TEST {
 			sahAns += Ctri * AREA(node[i].bbmin,node[i].bbmax);
 		}
 		sahAns /= AREA(node[0].bbmin,node[0].bbmax);
+
+		return sahAns;
+	}
+	float SAH(const std::vector<QuadBVHNode>& node, int objCount) {
+		double sahAns = 0.0f;
+		auto innerNodeCount = node.size() - objCount;
+		for (size_t i = 0; i < innerNodeCount; ++i) {
+			int childCount = 4;
+			if (node[i].children.y < 0) --childCount;
+			if (node[i].children.w < 0) --childCount;
+			sahAns += childCount * (Cinn / 2.0) * AREA(node[i].bbmin, node[i].bbmax);
+		}
+		for (size_t i = innerNodeCount; i < node.size(); ++i) {
+			sahAns += Ctri * AREA(node[i].bbmin, node[i].bbmax);
+		}
+		sahAns /= AREA(node[0].bbmin, node[0].bbmax);
 
 		return sahAns;
 	}
@@ -285,9 +304,197 @@ namespace MCPT::BVH::TEST {
 		return EPO;
 	}
 
+	float EPOQuad(const std::vector<QuadBVHNode>& node, const std::vector<Triangle>& triangles) {
+		float EPO = 0.0f;
+		std::unordered_set<size_t> ancestor;
+		auto innerNodeCount = node.size() - triangles.size();
+
+		auto GETGEO = [&](size_t leafID) -> const Triangle& {
+			return triangles[node[leafID].children.x];
+		};
+
+		auto POINTINBOX = [](const cl_float4& p, const BoundingBox& box) -> bool {
+			if ((p.x >= box.bbmin.x && p.x <= box.bbmax.x)
+				&& (p.y >= box.bbmin.y && p.y <= box.bbmax.y)
+				&& (p.z >= box.bbmin.z && p.z <= box.bbmax.z))
+			{
+				return true;
+			}
+			return false;
+		};
+		auto TRIANGLEAREA = [](const Triangle& geo) -> float {
+			return len(cross(geo.v[1] - geo.v[0], geo.v[2] - geo.v[0])) / 2;
+		};
+
+		auto ROUNDTR = [](std::vector<cl_float4>& points, int axis, float pos, int sign) -> void {
+			std::vector<cl_float4> ans;
+			std::vector<int> inside;
+
+			float tans;
+
+			if (sign > 0) {
+				for (auto& p : points) {
+					inside.push_back(p.s[axis] >= pos);
+				}
+			}
+			else {
+				for (auto& p : points) {
+					inside.push_back(p.s[axis] <= pos);
+				}
+			}
+			if (points.empty()) return;
+			for (int i = 0; i < points.size(); ++i) {
+				auto i_1 = (i + 1 == points.size()) ? (0) : (i + 1);
+				if (!inside[i] && !inside[i_1]) {
+					continue;
+				}
+				else if (inside[i] && inside[i_1]) {
+					ans.push_back(points[i]);
+					continue;
+				}
+				else {
+					if (inside[i]) {
+						ans.push_back(points[i]);
+					}
+					cl_float4 direction = points[i_1] - points[i];
+					tans = (pos - points[i].s[axis]) / direction.s[axis];
+					ans.push_back(points[i] + tans * direction);
+				}
+			}
+
+			points.swap(ans);
+		};
+		auto pArea = [](const std::vector<cl_float4>& points) -> float {
+			float ans = 0.0f;
+			int sz = points.size();
+			if (sz < 2) {
+				return ans;
+			}
+			for (int i = 1; i < sz - 1; ++i) {
+				auto x1 = points[i] - points[0];
+				auto x2 = points[i + 1] - points[0];
+				ans += len(cross(x1, x2)) / 2;
+			}
+			return ans;
+		};
+		auto INTERSECTAREA = [&](const Triangle& geo, BoundingBox& box) -> float {
+			Triangle tr = geo;
+			tr.v[0].w = 1;
+			tr.v[1].w = 1;
+			tr.v[2].w = 1;
+
+			bool inside[3];
+			inside[0] = POINTINBOX(tr.v[0], box);
+			inside[1] = POINTINBOX(tr.v[1], box);
+			inside[2] = POINTINBOX(tr.v[2], box);
+
+			if (inside[0] && inside[1] && inside[2]) {
+				return TRIANGLEAREA(tr);
+			}
+
+			std::vector< cl_float4 > points = { tr.v[0],tr.v[1],tr.v[2] };
+
+
+			ROUNDTR(points, 0, box.bbmin.x, 1);
+			ROUNDTR(points, 1, box.bbmin.y, 1);
+			ROUNDTR(points, 2, box.bbmin.z, 1);
+
+			ROUNDTR(points, 0, box.bbmax.x, -1);
+			ROUNDTR(points, 1, box.bbmax.y, -1);
+			ROUNDTR(points, 2, box.bbmax.z, -1);
+
+			return pArea(points);
+		};
+	
+		std::deque<size_t> toBeDone;
+		auto TopDown = [&](size_t leafID, size_t rootID) -> void {
+			auto& geo = GETGEO(leafID);
+			auto box = BoundingBox({ node[rootID].bbmin,node[rootID].bbmax });
+
+			if (ancestor.find(rootID) == ancestor.end()) {
+				float epovalue = INTERSECTAREA(geo, box);
+				if (epovalue > 0) {
+					auto isInner = (rootID < innerNodeCount);
+					if (!isInner) {
+						EPO += epovalue * Ctri;
+					}
+					else {
+						auto notEmptyChildCount = 4;
+						if (node[rootID].children.y <= 0) --notEmptyChildCount;
+						if (node[rootID].children.w <= 0) --notEmptyChildCount;
+						EPO += epovalue * (Cinn / 2) * notEmptyChildCount;
+					}
+
+					if (node[rootID].children.x != node[rootID].children.y) {
+						toBeDone.push_back(node[rootID].children.x);
+						if (node[rootID].children.y > 0)
+							toBeDone.push_back(node[rootID].children.y);
+						toBeDone.push_back(node[rootID].children.z);
+						if (node[rootID].children.w > 0)
+							toBeDone.push_back(node[rootID].children.w);
+					}
+				}
+			}
+			else {
+				if (node[rootID].children.x != node[rootID].children.y) {
+					toBeDone.push_back(node[rootID].children.x);
+					if (node[rootID].children.y > 0)
+						toBeDone.push_back(node[rootID].children.y);
+					toBeDone.push_back(node[rootID].children.z);
+					if (node[rootID].children.w > 0)
+						toBeDone.push_back(node[rootID].children.w);
+				}
+			}
+		};
+
+		float percent = 0.1f;
+		float step = 0.1f;
+		int sz = (node.size() - triangles.size());
+
+		float prevEPO = 0.0f;
+		for (size_t i = sz; i < node.size(); ++i) {
+			ancestor.insert(i);
+
+			size_t j = i;
+			while (node[j].parent.w != -1) {
+				ancestor.insert(node[j].parent.w);
+				j = node[j].parent.w;
+			}
+
+			toBeDone.push_back(0);
+			while (!toBeDone.empty()) {
+				auto front = toBeDone.front();
+				toBeDone.pop_front();
+				TopDown(i, front);
+			}
+
+			epoTValue.push_back(EPO - prevEPO);
+			prevEPO = EPO;
+
+			ancestor.clear();
+
+			if ((i - sz) > (sz + 1)* percent) {
+				std::cout << "Now EPO Test: " << (i - sz) << std::endl;
+				percent += step;
+			}
+		}
+		std::cout << "epo total " << EPO << std::endl;
+
+		float totalAREA = 0.0;
+		for (size_t i = (node.size() >> 1); i < node.size(); ++i) {
+			totalAREA += TRIANGLEAREA(GETGEO(i));
+		}
+		EPO /= totalAREA;
+		std::cout << "Total Area: " << totalAREA << std::endl;
+		return EPO;
+	}
+
 	float EPO_GPU(cl::Buffer bvh, cl::Buffer triangles) {
 		static auto initer = []() {
-			prog = OpenCLBasic::createProgramFromFileWithHeader("./kernels/EPO.cl", "objdef.h");
+			if (!programInited) {
+				prog = OpenCLBasic::createProgramFromFileWithHeader("./kernels/EPO.cl", "objdef.h");
+				programInited = true;
+			}
 			kernel = OpenCLBasic::createKernel(prog, "calculateEPO");
 			return 0;
 		}();
@@ -319,6 +526,46 @@ namespace MCPT::BVH::TEST {
 		count /= area;
 		return count;
 	}
+
+	float Quad_EPO_GPU(cl::Buffer bvh, cl::Buffer triangles) {
+		static auto initer = []() {
+			if (!programInited) {
+				prog = OpenCLBasic::createProgramFromFileWithHeader("./kernels/EPO.cl", "objdef.h");
+				programInited = true;
+			}
+			quadKernel = OpenCLBasic::createKernel(prog, "calculateQuadEPO");
+			return 0;
+		}();
+
+		int triCount = triangles.getInfo<CL_MEM_SIZE>() / sizeof(Triangle);
+		int offset = bvh.getInfo<CL_MEM_SIZE>() / sizeof(QuadBVHNode) - triCount;
+		cl::Buffer epoBuffer = OpenCLBasic::newBuffer<float>(triCount);
+		cl::Buffer triAreaBuffer = OpenCLBasic::newBuffer<float>(triCount);
+
+		OpenCLBasic::setKernelArg(quadKernel, bvh, triangles, epoBuffer, triAreaBuffer, offset);
+		OpenCLBasic::enqueueNDRange(quadKernel, triCount, cl::NullRange);
+
+		std::vector<float> epoAns;
+		std::vector<float> areaAns;
+		epoAns.resize(triCount);
+		areaAns.resize(triCount);
+		OpenCLBasic::readBuffer(epoBuffer, epoAns.data());
+		OpenCLBasic::readBuffer(triAreaBuffer, areaAns.data());
+
+		double count = 0.0;
+		for (int i = 0; i < epoAns.size(); ++i) {
+			count += epoAns[i];
+		}
+		double area = 0.0;
+		for (int i = 0; i < areaAns.size(); ++i) {
+			area += areaAns[i];
+		}
+		//std::cout << "GPU: " << count << " " << area << std::endl;
+		count /= area;
+		return count;
+	}
+
+
 
 
 	float LCV(const std::vector<BVHNode>& node, const Camera& camera) {
@@ -470,31 +717,50 @@ namespace MCPT::BVH::TEST {
 			goto GPUBVH;
 		}
 
-		{
-			auto& node = bvh->getBVH();
-			auto sah = SAH(node);
-			std::cout << "SAH: " << sah << std::endl;
+		if (!Config::USEQUAD()) {
+			{
+				auto& node = bvh->getBVH();
+				auto sah = SAH(node);
+				std::cout << "SAH: " << sah << std::endl;
 
-			/*auto epo = EPO(node, triangles);
-			std::cout << "EPO: " << epo << std::endl;*/
+				/*auto epo = EPO(node, triangles);
+				std::cout << "EPO: " << epo << std::endl;*/
 
+
+				OpenCLBasic::init();
+				cl::Buffer bvhB = OpenCLBasic::newBuffer<BVHNode>(node.size(), const_cast<BVHNode*>(node.data()));
+				cl::Buffer triB = OpenCLBasic::newBuffer<Triangle>(triangles.size(), const_cast<Triangle*>(triangles.data()));
+
+				auto epogpu = EPO_GPU(bvhB, triB);
+				std::cout << "EPO_GPU: " << epogpu << std::endl;
+
+
+				auto camerajson = Config::GETCAMERA();
+				if (!camerajson.empty()) {
+					auto camera = Auxiliary::parseCamera(camerajson);
+					auto lcv = LCV(node, camera);
+					std::cout << "LCV: " << lcv << std::endl;
+				}
+			}
+		}
+		else {
+			auto quadBVH = std::make_unique< SimpleBVHQuad<CPU> >(bvh->releaseBVH());
+			auto& node = quadBVH->getQuadBVH();
+			auto objCount = quadBVH->getObjectCount();
+
+			auto sah = SAH(node, objCount);
+			std::cout << "Quad SAH: " << sah << std::endl;
 
 			OpenCLBasic::init();
-			cl::Buffer bvhB = OpenCLBasic::newBuffer<BVHNode>(node.size(), const_cast<BVHNode*>(node.data()));
+			
+			cl::Buffer bvhB = OpenCLBasic::newBuffer<BVHNode>(node.size(), const_cast<QuadBVHNode*>(node.data()));
 			cl::Buffer triB = OpenCLBasic::newBuffer<Triangle>(triangles.size(), const_cast<Triangle*>(triangles.data()));
 
-			auto epogpu = EPO_GPU(bvhB, triB);
-			std::cout << "EPO_GPU: " << epogpu << std::endl;
-
-
-			auto camerajson = Config::GETCAMERA();
-			if (!camerajson.empty()) {
-				auto camera = Auxiliary::parseCamera(camerajson);
-				auto lcv = LCV(node, camera);
-				std::cout << "LCV: " << lcv << std::endl;
-			}
-			return;
+			//auto epo = EPOQuad(node, triangles);
+			auto epogpu = Quad_EPO_GPU(bvhB, triB);
+			std::cout << "EPO: " << epogpu << std::endl;
 		}
+		return;
 
 
 		// GPU Part

@@ -27,4 +27,5 @@ namespace MCPT::Config {
 	bool TESTBVH();
 	bool TESTALL();
 	std::string BVHTYPE();
+	bool USEQUAD();
 }

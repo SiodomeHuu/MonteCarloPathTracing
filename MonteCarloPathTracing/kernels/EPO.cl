@@ -195,3 +195,79 @@ __kernel void calculateEPO(
 	trianglesEPO[gid] = epo_area;
 	trianglesArea[gid] = length(cross(tr.v[1].s012-tr.v[0].s012,tr.v[2].s012-tr.v[0].s012)) * 0.5f;
 }
+
+__kernel void calculateQuadEPO(
+	__global QuadBVHNode* bvh,
+	__global Triangle* triangles,
+	__global float* trianglesEPO,
+	__global float* trianglesArea,
+
+	uint offset
+) {
+	size_t gid = get_global_id(0);
+	size_t myID = gid + offset;
+
+	Triangle tr = triangles[ bvh[myID].children.x ];
+
+	float epo_area = 0.0f;
+
+	int ancestor[128];
+	ancestor[0] = myID;
+	int anSize = 1;
+
+	int nowParent = bvh[myID].parent.w;
+	while(nowParent != -1) {
+		ancestor[anSize++] = nowParent;
+		nowParent = bvh[nowParent].parent.w;
+	}
+	if(anSize >= 128) printf("anSize overflow\n");
+
+	// now ancestor get
+	// next, hit with root
+
+	int toTest[128];
+	toTest[0] = 0;
+	int testSize = 1;
+
+	while(testSize > 0) {
+		if(testSize >= 128) printf("testSize overflow");
+
+		int nowTest = toTest[--testSize];
+		bool skip = false;
+
+		int4 children = bvh[nowTest].children;
+
+		for(int i=0;i<anSize;++i) {
+			if(nowTest == ancestor[i]) {
+				if(children.x != children.y) {
+					toTest[testSize++] = children.x;
+					if(children.y > 0) toTest[testSize++] = children.y;
+					toTest[testSize++] = children.z;
+					if(children.w > 0) toTest[testSize++] = children.w;
+				}
+				skip = true;
+				break;
+			}
+		}
+		if(skip) continue;
+
+		float tempArea = INTERSECT(&tr, bvh[nowTest].bbmin, bvh[nowTest].bbmax);
+		if(tempArea > 0) {
+			int notEmptyChildrenCount = 4;
+			if(children.y <= 0) --notEmptyChildrenCount;
+			if(children.w <= 0) --notEmptyChildrenCount;
+
+			epo_area += tempArea * ((nowTest>=(offset))?Ctri:(Cinn/2*notEmptyChildrenCount));
+
+			if(children.x != children.y) {
+				toTest[testSize++] = children.x;
+				if(children.y > 0) toTest[testSize++] = children.y;
+				toTest[testSize++] = children.z;
+				if(children.w > 0) toTest[testSize++] = children.w;
+			}
+		}
+	}
+	
+	trianglesEPO[gid] = epo_area;
+	trianglesArea[gid] = length(cross(tr.v[1].s012-tr.v[0].s012,tr.v[2].s012-tr.v[0].s012)) * 0.5f;
+}

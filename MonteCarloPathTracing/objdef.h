@@ -91,12 +91,20 @@ namespace MCPT {
 	typedef struct BVHNode_tag {
 		float4 bbmin;
 		float4 bbmax;
-		float4 __padding;
 		int parent;
 		int left;
 		int right;
-		int __padding2;
+		int __padding;
 	} BVHNode;
+
+	typedef struct QuadBVHNode_tag {
+		union {
+			float4 bbmin;
+			int4 parent;
+		};
+		float4 bbmax;
+		int4 children;
+	} QuadBVHNode;
 
 #ifndef __cplusplus
 	float det2x2(float a, float b,
@@ -180,44 +188,44 @@ namespace MCPT {
 		float3 realN = object->normal.s012;
 		float3 Rd = ray->direction.s012;
 		float3 AB, AC, A_Ro;
-		float t, b, c;
+float t, b, c;
 
 
-		if (fabs(dot(realN, Rd)) < EPSILON) {
-			return false;
-		}
+if (fabs(dot(realN, Rd)) < EPSILON) {
+	return false;
+}
 
-		AB = (object->v[1] - object->v[0]).s012;
-		AC = (object->v[2] - object->v[0]).s012;
-		A_Ro = (object->v[0] - ray->origin).s012;
+AB = (object->v[1] - object->v[0]).s012;
+AC = (object->v[2] - object->v[0]).s012;
+A_Ro = (object->v[0] - ray->origin).s012;
 
-		Matrix equalization = (float16)(
-			Rd, 0,
-			-AB, 0,
-			-AC, 0,
-			0, 0, 0, 1
-			);
+Matrix equalization = (float16)(
+	Rd, 0,
+	-AB, 0,
+	-AC, 0,
+	0, 0, 0, 1
+	);
 
-		equalization = Inverse(equalization);
-		if (equalization.s0 == FLT_MAX)
-			return false;
+equalization = Inverse(equalization);
+if (equalization.s0 == FLT_MAX)
+return false;
 
-		t = dot(A_Ro, equalization.s048);
-		b = dot(A_Ro, equalization.s159);
-		c = dot(A_Ro, equalization.s26a);
+t = dot(A_Ro, equalization.s048);
+b = dot(A_Ro, equalization.s159);
+c = dot(A_Ro, equalization.s26a);
 
-		if (b < 0 || c < 0 || b + c > 1 || t <= tmin) {
-			return false;
-		}
+if (b < 0 || c < 0 || b + c > 1 || t <= tmin) {
+	return false;
+}
 
-		if ( hit->t - t >=EPSILON) {
-			hit->t = t;
-			hit->normal = object->normal;
-			hit->normal.w = 0.0f;
-			hit->materialID = object->materialID.w;
-			hit->intersectPoint = ray->origin + t * ray->direction;
-		}
-		return true;
+if (hit->t - t >= EPSILON) {
+	hit->t = t;
+	hit->normal = object->normal;
+	hit->normal.w = 0.0f;
+	hit->materialID = object->materialID.w;
+	hit->intersectPoint = ray->origin + t * ray->direction;
+}
+return true;
 	}
 
 	bool intersectAABB(float4 bbmin, float4 bbmax, Ray* r, float tmin) {
@@ -236,7 +244,7 @@ namespace MCPT {
 		return true;
 	}
 
-	
+
 	bool intersectObjects(
 		__global BVHNode* bvhnodes,
 		__global Triangle* triangles,
@@ -244,22 +252,22 @@ namespace MCPT {
 		Hit* hit,
 		float tmin
 	) {
-		int stack[64] = {0};
+		int stack[64] = { 0 };
 		int sp = 1;
 
 		bool isIntersect = false;
 
-		while(sp > 0) {
-			BVHNode node = bvhnodes[ stack[--sp] ];
+		while (sp > 0) {
+			BVHNode node = bvhnodes[stack[--sp]];
 		NEXT:
-			if(intersectAABB(node.bbmin,node.bbmax,ray,tmin)) {
+			if (intersectAABB(node.bbmin, node.bbmax, ray, tmin)) {
 				int leftNext = node.left;
 				int rightNext = node.right;
-				if(leftNext == rightNext) { // then triangle
+				if (leftNext == rightNext) { // then triangle
 					Triangle tr = triangles[leftNext];
 
 					//MARK####
-					if(intersectTriangle(ray,&tr,tmin,hit)) {
+					if (intersectTriangle(ray, &tr, tmin, hit)) {
 						isIntersect = true;
 						hit->triangleID = leftNext;
 					}

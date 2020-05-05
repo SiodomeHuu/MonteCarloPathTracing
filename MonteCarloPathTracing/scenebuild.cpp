@@ -8,6 +8,7 @@
 
 #include "BVH/hlbvh.h"
 #include "BVH/treeletBVH.h"
+#include "BVH/simpleQuad.h"
 
 using namespace MCPT;
 using namespace MCPT::SceneBuild;
@@ -24,6 +25,7 @@ namespace {
 
 	std::unique_ptr< BVH::CPUBVH > bvhpt;
 	std::unique_ptr< BVH::GPUBVH > gpubvhpt;
+	std::unique_ptr< BVH::SimpleBVHQuad<BVH::CPU> > quadbvhpt;
 
 	cl::Buffer trBuffer;
 	cl::Buffer matBuffer;
@@ -61,8 +63,9 @@ SceneCL::SceneCL(std::vector<MCPT::Triangle> tr, std::vector<MCPT::Material> mat
 		tr.materialID.w = matIndices[i];
 	}
 
-	
-
+	matBuffer = OpenCLBasic::newBuffer<Material>(materials.size(), materials.data());
+	matIDBuffer = OpenCLBasic::newBuffer<int>(matIndices.size(), matIndices.data());
+	rayCount = 0;
 	auto bvhtype = Config::BVHTYPE();
 	if (bvhtype == "hlbvh") {
 		bvhpt = std::make_unique<BVH::HLBVH<BVH::CPU>>(BVH::HLBVH<BVH::CPU>(triangles));
@@ -78,11 +81,19 @@ SceneCL::SceneCL(std::vector<MCPT::Triangle> tr, std::vector<MCPT::Material> mat
 		throw "BVH Not Implemented";
 	}
 	{
-		auto bvh = bvhpt->getBVH();
-
-		trBuffer = OpenCLBasic::newBuffer<Triangle>(triangles.size(), triangles.data());
-		bvhBuffer = OpenCLBasic::newBuffer<BVHNode>(bvh.size(), bvh.data());
+		if (Config::USEQUAD()) {
+			quadbvhpt = std::make_unique< BVH::SimpleBVHQuad<BVH::CPU> >(bvhpt->releaseBVH());
+			auto bvh = quadbvhpt->getQuadBVH();
+			trBuffer = OpenCLBasic::newBuffer<Triangle>(triangles.size(), triangles.data());
+			bvhBuffer = OpenCLBasic::newBuffer<QuadBVHNode>(bvh.size(), bvh.data());
+		}
+		else {
+			auto bvh = bvhpt->getBVH();
+			trBuffer = OpenCLBasic::newBuffer<Triangle>(triangles.size(), triangles.data());
+			bvhBuffer = OpenCLBasic::newBuffer<BVHNode>(bvh.size(), bvh.data());
+		}
 		
+		return;
 	}
 GPUBVH:
 	{
@@ -93,11 +104,7 @@ GPUBVH:
 
 		gpubvhpt = std::make_unique<BVH::TreeletBVH<BVH::GPU>>(bvhBuffer, trBuffer);
 	}
-	
-	matBuffer = OpenCLBasic::newBuffer<Material>(materials.size(), materials.data());
-	matIDBuffer = OpenCLBasic::newBuffer<int>(matIndices.size(), matIndices.data());
-
-	rayCount = 0;
+	return;
 }
 
 void SceneCL::intersect(MCPT::RayGeneration::RayBase* rays)
@@ -157,8 +164,14 @@ std::unique_ptr< SceneBase > MCPT::SceneBuild::buildScene(std::vector<MCPT::Tria
 
 void MCPT::SceneBuild::init() {
 	if (Config::USEOPENCL()) {
-		intersectProgram = OpenCLBasic::createProgramFromFileWithHeader(Config::INTERSECTKERNELPATH(), "objdef.h");
-		intersectKernel = OpenCLBasic::createKernel(intersectProgram, "intersectRays");
+		if (Config::USEQUAD()) {
+			intersectProgram = OpenCLBasic::createProgramFromFileWithHeader(Config::INTERSECTKERNELPATH(), "objdef.h","-D MCPT_USE_QUADBVH=1");
+			intersectKernel = OpenCLBasic::createKernel(intersectProgram, "intersectRays");
+		}
+		else {
+			intersectProgram = OpenCLBasic::createProgramFromFileWithHeader(Config::INTERSECTKERNELPATH(), "objdef.h");
+			intersectKernel = OpenCLBasic::createKernel(intersectProgram, "intersectRays");
+		}
 
 		shadeProgram = OpenCLBasic::createProgramFromFileWithHeader(Config::SHADEKERNELPATH(), "objdef.h",("-D MAX_DEPTH="+std::to_string(Config::MAXDEPTH())));
 		shadeKernel = OpenCLBasic::createKernel(shadeProgram, "shade");

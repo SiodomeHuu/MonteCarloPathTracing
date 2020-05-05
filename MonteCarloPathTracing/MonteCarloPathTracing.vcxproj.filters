@@ -52,6 +52,9 @@
     <Filter Include="BVH\TreeletBVH">
       <UniqueIdentifier>{bf4a74b8-0611-44d2-8308-3a8e5adb9489}</UniqueIdentifier>
     </Filter>
+    <Filter Include="BVH\QuadBVH">
+      <UniqueIdentifier>{c3d09392-1dc8-4b76-b307-f7ff868e62fb}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="oclbasic.h">
@@ -105,6 +108,9 @@
     <ClInclude Include="BVH\treeletBVH.h">
       <Filter>BVH\TreeletBVH</Filter>
     </ClInclude>
+    <ClInclude Include="BVH\simpleQuad.h">
+      <Filter>BVH\QuadBVH</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="oclbasic.cpp">
@@ -154,6 +160,9 @@
     </ClCompile>
     <ClCompile Include="BVH\treeletBVH.cpp">
       <Filter>BVH\TreeletBVH</Filter>
+    </ClCompile>
+    <ClCompile Include="BVH\simpleQuad.cpp">
+      <Filter>BVH\QuadBVH</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

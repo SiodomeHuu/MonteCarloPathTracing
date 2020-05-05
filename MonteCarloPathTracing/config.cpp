@@ -32,6 +32,7 @@ namespace {
 	bool testBVH;
 	bool testAll;
 	std::string bvhType;
+	bool useQuad;
 
 
 	template<class T>
@@ -87,6 +88,7 @@ namespace {
 			if (bvhType == "") {
 				bvhType = "hlbvh";
 			}
+			useQuad = tryRead<bool>(config,"usequad");
 
 			testAll = tryRead<bool>(config, "testall");
 			if (testAll) {
@@ -142,5 +144,6 @@ namespace MCPT::Config {
 	RETURNFUNC(TESTALL, testAll);
 	RETURNFUNC(BVHTYPE, bvhType);
 	RETURNFUNC(GETOBJS, objs);
+	RETURNFUNC(USEQUAD, useQuad);
 }
 
