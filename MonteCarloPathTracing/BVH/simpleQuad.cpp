@@ -246,7 +246,7 @@ SimpleBVHQuad<CPU>::SimpleBVHQuad(const std::vector<BVHNode>& bvh) {
 	bvhnode.reserve(bvh.size());
 	objCount = (bvh.size() >> 1) + 1;
 	formQuadBVH(bvh, bvhnode);
-	depth(bvhnode, objCount);
+	//depth(bvhnode, objCount);
 }
 
 const std::vector<BVHNode>& SimpleBVHQuad<CPU>::getBVH() {

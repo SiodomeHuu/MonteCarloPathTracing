@@ -30,8 +30,9 @@
     },
 
     {
+      "testbvh" :  true,
       "bvhtype": "hlbvh",
-      "usequad" :  true,
+      "usequad": true,
       "width": 768,
       "height": 512,
       "platform": "nvidia",
@@ -105,19 +106,26 @@
 
     {
       "testbvh": true,
+      "opencl": true,
       #"bvhtype": "treelet",
       "usequad" :  true,
       "width": 1600,
       "height": 900,
       "directory": "../Scene2/",
-      "objname": "sponza.obj"
-      #"camera": {
-        # "position": [ 302.353668, 410.221863, -135.232559 ],
-        # "lookat": [ 301.5317943152072, 409.8798428566743, -134.7769869773685 ],
-        # "up": [ 0, 1, 0 ],
-        # "fov":,
-        # "resolution": [ 1600, 900 ]
-      # }
+      "objname": "sponza.obj",
+      "camera": {
+        "position": [ 302.353668, 410.221863, -135.232559 ],
+        "lookat": [ 301.5317943152072, 409.8798428566743, -134.7769869773685 ],
+        "up": [ 0, 1, 0 ],
+        "fov": 1.8,
+        "resolution": [ 1600, 900 ]
+      },
+      "raygenerator": "kernels/rayGenerator.cl",
+      "intersect": "kernels/intersect.cl",
+      "shade": "kernels/shade.cl",
+       "maxdepth": 16,
+      "attempt": 1024,
+      "platform": "nvidia"
     },
 
 
@@ -141,22 +149,29 @@
     },
 
     {
+      "opencl": true,
       "testbvh": true,
       "bvhtype": "hlbvh",
-      #"usequad" :  true,
+      #"usequad": true,
       "width": 768,
       "height": 512,
 
       "directory": "../Scene/veach_mis/",
-      "objname": "mis.obj"
+      "objname": "mis.obj",
 
-      # "camera": {
-      #  "position": [ 278, 273, -800 ],
-      #  "lookat": [ 278, 273, -799 ],
-      #  "up": [ 0, 1, 0 ],
-      #  "fov": 39.3077,
-      #  "resolution": [ 512, 512 ]
-      # }
+      "camera": {
+        "position": [ 278, 273, -800 ],
+        "lookat": [ 278, 273, -799 ],
+        "up": [ 0, 1, 0 ],
+        "fov": 39.3077,
+        "resolution": [ 512, 512 ]
+      },
+      "platform": "nvidia",
+      "raygenerator": "kernels/rayGenerator.cl",
+      "intersect": "kernels/intersect.cl",
+      "shade": "kernels/shade.cl",
+      "maxdepth": 8,
+      "attempt": 512
     },
 
 
@@ -204,8 +219,763 @@
       "height": 512,
       "directory": "../Scene2/",
       "objname": "warriors.obj"
+    }, #10
+    {
+      "testall": true,
+      "directory": "../Scene2/",
+      "objname": [
+        {
+          "name": "erato-1.obj",
+          "bvhs": [
+            "hlbvh",
+            "treeletGPU",
+            "quadhlbvh",
+            "quadtreelet"
+          ],
+          "cameras": []
+        },
+        {
+          "name": "f000.obj",
+          "bvhs": [
+            "hlbvh",
+            "treeletGPU",
+            "quadhlbvh",
+            "quadtreelet"
+          ],
+          "cameras": []
+        },
+        {
+          "name": "gallery.obj",
+          "bvhs": [
+            "hlbvh",
+            "treeletGPU",
+            "quadhlbvh",
+            "quadtreelet"
+          ],
+          "cameras": []
+        },
+        {
+          "name": "living_room.obj",
+          "bvhs": [
+            "hlbvh",
+            "treeletGPU",
+            "quadhlbvh",
+            "quadtreelet"
+          ],
+          "cameras": []
+        },
+        {
+          "name": "lost_empire.obj",
+          "bvhs": [
+            "hlbvh",
+            "treeletGPU",
+            "quadhlbvh",
+            "quadtreelet"
+          ],
+          "cameras": []
+        },
+        {
+          "name": "rungholt.obj",
+          "bvhs": [
+            "hlbvh",
+            "treeletGPU",
+            "quadhlbvh",
+            "quadtreelet"
+          ],
+          "cameras": []
+        },
+        {
+          "name": "salle_de_bain.obj",
+          "bvhs": [
+            "hlbvh",
+            "treeletGPU",
+            "quadhlbvh",
+            "quadtreelet"
+          ],
+          "cameras": []
+        },
+        {
+          "name": "sportsCar.obj",
+          "bvhs": [
+            "hlbvh",
+            "treeletGPU",
+            "quadhlbvh",
+            "quadtreelet"
+          ],
+          "cameras": []
+        },
+        {
+          "name": "vokselia_spawn.obj",
+          "bvhs": [
+            "hlbvh",
+            "treeletGPU",
+            "quadhlbvh",
+            "quadtreelet"
+          ],
+          "cameras": []
+        }
+      ]
+    },
+    {
+      "testall" : true,
+      "directory": "../Scene2/",
+      "objname" : [
+        {
+          "name": "bmw.obj",
+          "bvhs": [],
+          "cameras": []
+        },
+        {
+          "name": "spaceship_new.obj",
+          "bvhs": [],
+          "cameras": []
+        },
+        {
+          "name": "coffee_maker.obj",
+          "bvhs": [],
+          "cameras": []
+        },
+        {
+          "name": "warriors.obj",
+          "bvhs": [],
+          "cameras": []
+        },
+        {
+          "name": "dragon.obj",
+          "bvhs": [],
+          "cameras": []
+        }
+      ]
+    },
+
+    {
+      "testbvh": true,
+      "bvhtype": "hlbvh",
+
+      "width": 1280,
+      "height": 720,
+      "platform": "nvidia",
+
+      "directory": "../Scene2/",
+      "objname": "erato-1.obj",
+
+      "raygenerator": "kernels/rayGenerator.cl",
+      "intersect": "kernels/intersect.cl",
+      "shade": "kernels/shade.cl",
+
+      "maxdepth": 16,
+      "attempt": 1024,
+
+      "camera": {
+        "position": [ 0, 10, 88.67 ],
+        "lookat": [ 0, 10, 87.67 ],
+        "up": [ 0, 1, 0 ],
+        "fov": 45,
+        "resolution": [ 1280, 720 ]
+      },
+
+      "opencl": true
+    },
+    {
+      "testall": true,
+      "directory": "../Scene2/",
+      "objname": [
+        {
+          "name": "bmw.obj",
+          "bvhs": [
+            "hlbvh",
+            "treeletGPU",
+            "quadhlbvh",
+            "quadtreelet"
+          ],
+          "cameras": [
+            {
+              "position": [ -117.809, 456.385, 342.577 ],
+              "lookat": [ -117.587, 455.634, 341.956 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            }
+          ]
+        },
+        {
+          "name": "spaceship_new.obj",
+          "bvhs": [
+            "hlbvh",
+            "treeletGPU",
+            "quadhlbvh",
+            "quadtreelet"
+          ],
+          "cameras": [
+            {
+              "position": [ -0.71791, 0.761891, 2.2325 ],
+              "lookat": [ -0.488911, 0.48187, 1.30022 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            }
+          ]
+        },
+        {
+          "name": "coffee_maker.obj",
+          "bvhs": [
+            "hlbvh",
+            "treeletGPU",
+            "quadhlbvh",
+            "quadtreelet"
+          ],
+          "cameras": [
+            {
+              "position": [ -0.107859, 0.327987, 0.631535 ],
+              "lookat": [ -0.0441226, 0.0903819, -0.337734 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            }
+          ]
+        },
+        {
+          "name": "warriors.obj",
+          "bvhs": [
+            "hlbvh",
+            "treeletGPU",
+            "quadhlbvh",
+            "quadtreelet"
+          ],
+          "cameras": [
+            {
+              "position": [ -0.589591, -0.00569887, 10.734 ],
+              "lookat": [ -0.736578, -0.192058, 9.76258 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            }
+          ]
+        },
+        {
+          "name": "dragon.obj",
+          "bvhs": [
+            "hlbvh",
+            "treeletGPU",
+            "quadhlbvh",
+            "quadtreelet"
+          ],
+          "cameras": [
+            {
+              "position": [ -22.1844, 17.6798, 21.7402 ],
+              "lookat": [ -21.5536, 17.3214, 21.0521 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            }
+          ]
+        },
+        {
+          "name": "sponza.obj",
+          "bvhs": [
+            "hlbvh",
+            "treeletGPU",
+            "quadhlbvh",
+            "quadtreelet"
+          ],
+          "cameras": [
+            {
+              "position": [ 797.648, 1063.22, 75.963 ],
+              "lookat": [ 796.751, 1062.8, 75.8335 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            },
+            {
+              "position": [ -1138.64, 131.902, -39.5417 ],
+              "lookat": [ -1137.65, 132.04, -39.5383 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            }
+          ]
+        },
+        {
+          "name": "sibenik.obj",
+          "bvhs": [
+            "hlbvh",
+            "treeletGPU",
+            "quadhlbvh",
+            "quadtreelet"
+          ],
+          "cameras": [
+            {
+              "position": [ 15.1677, -2.53376, -2.32445 ],
+              "lookat": [ 14.2028, -2.75224, -2.17914 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            },
+            {
+              "position": [ -19.4672, -14.5143, -0.841069 ],
+              "lookat": [ -18.5048, -14.2448, -0.809221 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            },
+            {
+              "position": [ 17.1904, -11.5689, 0.212801 ],
+              "lookat": [ 16.1945, -11.4975, 0.157786 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            }
+          ]
+        },
+        {
+          "name": "budda.obj",
+          "bvhs": [
+            "hlbvh",
+            "treeletGPU",
+            "quadhlbvh",
+            "quadtreelet"
+          ],
+          "cameras": [
+            {
+              "position": [ 6.4, 10.7662, 12.6438 ],
+              "lookat": [ 6.05075, 10.3537, 11.8025 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            }
+          ]
+        },
+        {
+          "name": "conference.obj",
+          "bvhs": [
+            "hlbvh",
+            "treeletGPU",
+            "quadhlbvh",
+            "quadtreelet"
+          ],
+          "cameras": [
+            {
+              "position": [ -562.009, 542.17, -948.647 ],
+              "lookat": [ -561.253, 541.906, -948.048 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            },
+            {
+              "position": [ 1558.32, 411.999, 500.4 ],
+              "lookat": [ 1557.49, 411.76, 499.881 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            },
+            {
+              "position": [ 985.531, 328.611, 302.343 ],
+              "lookat": [ 984.989, 328.22, 301.599 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            },
+            {
+              "position": [ -342.346, 565.626, -142.71 ],
+              "lookat": [ -341.489, 565.113, -142.76 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            }
+          ]
+        },
+        {
+          "name": "dragon-simple.obj",
+          "bvhs": [
+            "hlbvh",
+            "treeletGPU",
+            "quadhlbvh",
+            "quadtreelet"
+          ],
+          "cameras": [
+            {
+              "position": [ 1.04016, 0.206838, -0.00653094 ],
+              "lookat": [ 0.0629199, 0.00576077, 0.0611325 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            }
+          ]
+        },
+        {
+          "name": "powerplant.obj",
+          "bvhs": [
+            "hlbvh",
+            "treelet",
+            "quadhlbvh",
+            "quadtreelet"
+          ],
+          "cameras": [
+            {
+              "position": [ -126509, 20759.7, -16883.6 ],
+              "lookat": [ -126509, 20760.1, -16883.2 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            },
+            {
+              "position": [ -128635, 32235.7, 108261 ],
+              "lookat": [ -128634, 32235.8, 108260 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            },
+            {
+              "position": [ 18498.9, 25105.6, 129095 ],
+              "lookat": [ 18498.6, 25105.4, 129094 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            },
+            {
+              "position": [ 12901.9, 13756.8, 26425.6 ],
+              "lookat": [ 12901, 13757, 26425.5 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            },
+            {
+              "position": [ -12421.6, 10964.1, 11590.4 ],
+              "lookat": [ -12420.6, 10964.3, 11590.6 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            }
+          ]
+        },
+        {
+          "name": "san-miguel.obj",
+          "bvhs": [
+            "hlbvh",
+            "treeletGPU",
+            "quadhlbvh",
+            "quadtreelet"
+          ],
+          "cameras": [
+            {
+              "position": [ 25.8892, 1.47308, 1.40398 ],
+              "lookat": [ 24.8999, 1.53171, 1.53729 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            },
+            {
+              "position": [ 7.30396, 11.5896, 0.695789 ],
+              "lookat": [ 8.11262, 11.1511, 1.08792 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            },
+            {
+              "position": [ 7.39422, 7.23383, -1.97533 ],
+              "lookat": [ 8.30311, 7.03206, -1.61034 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            },
+            {
+              "position": [ 5.32158, 1.89764, 1.01864 ],
+              "lookat": [ 6.27438, 1.87646, 1.3215 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            }
+          ]
+        },
+        {
+          "name": "hairball.obj",
+          "bvhs": [
+            "hlbvh",
+            "treeletGPU",
+            "quadhlbvh",
+            "quadtreelet"
+          ],
+          "cameras": [
+            {
+              "position": [ -1.49476, 2, 14.8932 ],
+              "lookat": [ -1.37431, 1.86525, 13.9097 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            }
+          ]
+        },
+        {
+          "name": "erato-1.obj",
+          "bvhs": [
+            "hlbvh",
+            "treeletGPU",
+            "quadhlbvh",
+            "quadtreelet"
+          ],
+          "cameras": [
+            {
+              "position": [ -11437.1, -12936.2, -12739.9 ],
+              "lookat": [ -11437.1, -12937.2, -12740 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            }
+          ]
+        },
+
+
+        {
+          "name": "f000.obj",
+          "bvhs": [
+            "hlbvh",
+            "treeletGPU",
+            "quadhlbvh",
+            "quadtreelet"
+          ],
+          "cameras": [
+            {
+              "position": [ 0.488188, 0.446114, 1.88746 ],
+              "lookat": [ 0.287976, 0.316562, 0.916306 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            },
+            {
+              "position": [ -1.35223, 1.00846, -1.37139 ],
+              "lookat": [ -0.655027, 0.573546, -0.801519 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            },
+            {
+              "position": [ 1.21114, 2.16042, 3.79596 ],
+              "lookat": [ 0.965131, 1.65294, 2.97016 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            }
+          ]
+        },
+        {
+          "name": "gallery.obj",
+          "bvhs": [
+            "hlbvh",
+            "treeletGPU",
+            "quadhlbvh",
+            "quadtreelet"
+          ],
+          "cameras": [
+            {
+              "position": [ -3.0403, 5.03091, -11.3101 ],
+              "lookat": [ -2.84477, 4.6942, -10.389 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            },
+            {
+              "position": [ 2.60202, 2.2711, 8.66979 ],
+              "lookat": [ 2.25888, 2.27014, 7.73051 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            },
+            {
+              "position": [ 2.72798, 2.66832, -5.12966 ],
+              "lookat": [ 2.1083, 2.39607, -4.39354 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            }
+          ]
+        },
+        {
+          "name": "living_room.obj",
+          "bvhs": [
+            "hlbvh",
+            "treeletGPU",
+            "quadhlbvh",
+            "quadtreelet"
+          ],
+          "cameras": [
+            {
+              "position": [ 0.684818, 2.97541, 7.3608 ],
+              "lookat": [ 0.57975, 2.49074, 6.49243 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            },
+            {
+              "position": [ -2.04014, 1.34886, 1.67003 ],
+              "lookat": [ -1.19464, 1.03266, 2.10032 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            },
+            {
+              "position": [ 2.32001, 1.46838, 6.45678 ],
+              "lookat": [ 1.77286, 1.40063, 5.6225 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            }
+          ]
+        },
+        {
+          "name": "lost_empire.obj",
+          "bvhs": [
+            "hlbvh",
+            "treelet",
+            "quadhlbvh",
+            "quadtreelet"
+          ],
+          "cameras": [
+            {
+              "position": [ -27.7477, 31.4612, 67.3972 ],
+              "lookat": [ -27.3512, 31.1333, 66.5398 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            },
+            {
+              "position": [ 33.5604, 52.5874, -84.9141 ],
+              "lookat": [ 33.1823, 52.1927, -84.0767 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            },
+            {
+              "position": [ -3.65058, 15.3867, 50.7303 ],
+              "lookat": [ -3.47094, 15.3982, 49.7466 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            },
+            {
+              "position": [ -4.55202, 26.8606, -12.7276 ],
+              "lookat": [ -4.83107, 26.4642, -13.6022 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            },
+            {
+              "position": [ 16.1533, 26.2431, -12.2583 ],
+              "lookat": [ 15.9144, 25.9233, -11.3415 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            }
+          ]
+        },
+        {
+          "name": "rungholt.obj",
+          "bvhs": [
+            "hlbvh",
+            "treeletGPU",
+            "quadhlbvh",
+            "quadtreelet"
+          ],
+          "cameras": [
+            {
+              "position": [ 319.32, 29.4491, 226.737 ],
+              "lookat": [ 318.385, 29.2717, 226.428 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            },
+            {
+              "position": [ 300.048, 70.6441, -266.967 ],
+              "lookat": [ 299.475, 70.346, -266.204 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            },
+            {
+              "position": [ -320.116, 47.8757, -293.866 ],
+              "lookat": [ -319.549, 47.6352, -293.078 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            },
+            {
+              "position": [ -256.394, 56.3168, -63.3481 ],
+              "lookat": [ -255.451, 55.9844, -63.3574 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            },
+            {
+              "position": [ -228.856, 36.6148, 90.1859 ],
+              "lookat": [ -228.07, 36.6098, 90.8049 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            },
+            {
+              "position": [ -228.856, 36.6148, 90.1859 ],
+              "lookat": [ -229.017, 36.5285, 89.2027 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            }
+          ]
+        },
+        {
+          "name": "salle_de_bain.obj",
+          "bvhs": [
+            "hlbvh",
+            "treeletGPU",
+            "quadhlbvh",
+            "quadtreelet"
+          ],
+          "cameras": [
+            {
+              "position": [ 3.96984, 21.2403, 40.5447 ],
+              "lookat": [ 3.87659, 20.9829, 39.5829 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            }
+          ]
+        },
+        {
+          "name": "sportsCar.obj",
+          "bvhs": [
+            "hlbvh",
+            "treeletGPU",
+            "quadhlbvh",
+            "quadtreelet"
+          ],
+          "cameras": [
+            {
+              "position": [ 1.81245, 1.31836, 2.60119 ],
+              "lookat": [ 1.21816, 0.903093, 1.91244 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            }
+          ]
+        },
+        {
+          "name": "vokselia_spawn.obj",
+          "bvhs": [
+            "hlbvh",
+            "treelet",
+            "quadhlbvh",
+            "quadtreelet"
+          ],
+          "cameras": [
+            {
+              "position": [ -1.92157, 0.473497, 1.85345 ],
+              "lookat": [ -1.31062, 0.179863, 1.11826 ],
+              "up": [ 0, 1, 0 ],
+              "fov": 45,
+              "resolution": [ 1280, 720 ]
+            }
+          ]
+        }
+      ]
     }
-  
   ],
-  "configid" : 10
+  "configid" : 14
 }

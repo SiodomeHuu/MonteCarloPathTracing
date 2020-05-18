@@ -434,7 +434,7 @@ __kernel void reconstructTreelet(
 				splitBuffer[lid] = -1;
 			}*/
 			
-			{
+			/*{
 				if(lid == 0) {
 					SplitInnerNode toSplitBuffer1[MAX_NODE];
 					toSplitBuffer1[0].parentCode = NOW_BIT;
@@ -497,7 +497,7 @@ __kernel void reconstructTreelet(
 						toSPBack = 0;
 					}
 				}
-			}
+			}*/
 
 			// Refresh the SAH
 			/*{
@@ -515,7 +515,7 @@ __kernel void reconstructTreelet(
 					}
 				}
 			}*/
-			if(lid == 0) {
+			/*if(lid == 0) {
 				for(int i = NOW_NODE - 2; i >= 0; --i) {
 					__global BVHNode* node = nodes+freeBVHNode[i];
 					node->bbmin = min(nodes[node->left].bbmin,nodes[node->right].bbmin);
@@ -523,7 +523,7 @@ __kernel void reconstructTreelet(
 					sahValue[freeBVHNode[i]] = sahValue[node->left]+sahValue[node->right]
 						+ Cinn*(AREA(node->bbmin,node->bbmax));
 				}
-			}
+			}*/
 			idx = nodes[idx].parent;
 		}
 	}

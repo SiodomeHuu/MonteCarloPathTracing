@@ -271,3 +271,76 @@ __kernel void calculateQuadEPO(
 	trianglesEPO[gid] = epo_area;
 	trianglesArea[gid] = length(cross(tr.v[1].s012-tr.v[0].s012,tr.v[2].s012-tr.v[0].s012)) * 0.5f;
 }
+
+
+
+
+
+
+__kernel void LCV(
+	__global Ray* ray,
+	__global BVHNode* nodes,
+	__global int* counts
+) {
+	size_t gid = get_global_id(0);
+	int stack[64] = {0};
+	int sp = 1;
+	float tmin = EPSILON;
+
+	int count = 0;
+
+	Ray r = ray[gid];
+
+	while(sp > 0) {
+		BVHNode node = nodes[stack[--sp]];
+	NEXT:
+		if(intersectAABB(node.bbmin, node.bbmax, &r, tmin)) {
+			int leftNext = node.left;
+			int rightNext = node.right;
+			if(leftNext == rightNext) {
+				++count;
+			}
+			else {
+				stack[sp++] = rightNext;
+				node = nodes[leftNext];
+				goto NEXT;
+			}
+		}
+	}
+	counts[gid] = count;
+}
+
+
+__kernel void QuadLCV(
+	__global Ray* ray,
+	__global QuadBVHNode* nodes,
+	__global int* counts
+) {
+	size_t gid = get_global_id(0);
+	int stack[64] = {0};
+	int sp = 1;
+	float tmin = EPSILON;
+
+	Ray r = ray[gid];
+
+	int count = 0;
+
+	while(sp > 0) {
+		QuadBVHNode node = nodes[stack[--sp]];
+		if(intersectAABB(node.bbmin, node.bbmax,&r, tmin)) {
+			int4 children = node.children;
+			if(children.x == children.y) {
+				++count;
+			}
+			else {
+				stack[sp++] = children.x;
+				if(children.y > 0)
+					stack[sp++] = children.y;
+				stack[sp++] = children.z;
+				if(children.w > 0)
+					stack[sp++] = children.w;
+			}
+		}
+	}
+	counts[gid] = count;
+}

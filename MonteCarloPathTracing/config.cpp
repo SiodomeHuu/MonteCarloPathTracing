@@ -3,6 +3,8 @@
 #include <sstream>
 #include <vector>
 
+
+
 #define RETURNFUNC(A,B) decltype(B) A() {return B;}
 
 using namespace nlohmann;
@@ -102,27 +104,26 @@ namespace {
 
 			directory = config["directory"].get<std::string>();
 			objname = config["objname"].get<std::string>();
-			width = double(config["width"]);
-			height = double(config["height"]);
 
+			width = tryRead<double>(config,"width");
+			if (width == 0.0) width = 800.0;
+			height = tryRead<double>(config, "height");
+			if (height == 0.0) height = 600.0;
 			
 
-			
+			useOpencl = tryRead<bool>(config,"opencl");
+
 			testBVH = tryRead<bool>(config, "testbvh");
-			if (testBVH) {
-				return;
-			}
 			
 			platform = config["platform"].get<std::string>();
 			rayGenerator = config["raygenerator"].get<std::string>();
-
-			useOpencl = bool(config["opencl"]);
+			
 
 			intersectKernelPath = config["intersect"].get<std::string>();
 			shadeKernelPath = config["shade"].get<std::string>();
 
-			maxDepth = config["maxdepth"];
-			maxAttempt = config["attempt"];
+			maxDepth = tryRead<int>(config, "maxdepth");
+			maxAttempt = tryRead<int>(config, "attempt");
 		}
 	} cfg;
 }
@@ -147,3 +148,29 @@ namespace MCPT::Config {
 	RETURNFUNC(USEQUAD, useQuad);
 }
 
+
+namespace MCPT::Config {
+	ConfigTrait::ConfigTrait() : empty(true) {}
+	ConfigTrait::ConfigTrait(nlohmann::json input) : obj(input), empty(false) {}
+
+
+	ConfigTrait ConfigTrait::operator[](const char* str) {
+		if (empty) return ConfigTrait();
+		auto iter = obj.find(str);
+		if (iter != obj.end()) {
+			return ConfigTrait(obj[str]);
+		}
+		return ConfigTrait();
+	}
+	ConfigTrait ConfigTrait::operator[](const std::string& str) {
+		return operator[](str.c_str());
+	}
+	ConfigTrait ConfigTrait::operator[](size_t idx) {
+		if (empty || idx >= obj.size()) return ConfigTrait();
+		return obj.at(idx);
+	}
+
+	ConfigTrait getConfig() {
+		return ConfigTrait(config);
+	}	
+}

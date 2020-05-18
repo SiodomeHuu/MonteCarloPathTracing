@@ -93,7 +93,13 @@ namespace {
 	cl::Kernel kernel;
 	cl::Kernel quadKernel;
 
+	cl::Kernel lcvKernel;
+	cl::Kernel quadLCVKernel;
 	bool programInited = false;
+
+	cl::Program rayGenProg;
+	cl::Kernel rayGenerator;
+	bool rayGenInited = false;
 }
 
 
@@ -104,39 +110,12 @@ namespace {
 
 namespace MCPT::BVH::TEST {
 
-	float SAH(const std::vector<BVHNode>& node) {
-		double sahAns = 0.0f;
-		for (size_t i = 0; i < (node.size() >> 1); ++i) {
-			sahAns += Cinn * AREA(node[i].bbmin,node[i].bbmax);
-		}
-		for (size_t i = (node.size() >> 1); i < node.size(); ++i) {
-			sahAns += Ctri * AREA(node[i].bbmin,node[i].bbmax);
-		}
-		sahAns /= AREA(node[0].bbmin,node[0].bbmax);
-
-		return sahAns;
-	}
-	float SAH(const std::vector<QuadBVHNode>& node, int objCount) {
-		double sahAns = 0.0f;
-		auto innerNodeCount = node.size() - objCount;
-		for (size_t i = 0; i < innerNodeCount; ++i) {
-			int childCount = 4;
-			if (node[i].children.y < 0) --childCount;
-			if (node[i].children.w < 0) --childCount;
-			sahAns += childCount * (Cinn / 2.0) * AREA(node[i].bbmin, node[i].bbmax);
-		}
-		for (size_t i = innerNodeCount; i < node.size(); ++i) {
-			sahAns += Ctri * AREA(node[i].bbmin, node[i].bbmax);
-		}
-		sahAns /= AREA(node[0].bbmin, node[0].bbmax);
-
-		return sahAns;
-	}
+	
 	
 	std::vector<float> epoTValue;
 	std::vector<float> bgData;
 
-	float EPO(const std::vector<BVHNode>& node, const std::vector<Triangle>& triangles) {
+	double EPO(const std::vector<BVHNode>& node, const std::vector<Triangle>& triangles) {
 		float EPO = 0.0f;
 		std::unordered_set<size_t> ancestor;
 
@@ -304,6 +283,8 @@ namespace MCPT::BVH::TEST {
 		return EPO;
 	}
 
+	// with bugs
+	[[deprecated]]
 	float EPOQuad(const std::vector<QuadBVHNode>& node, const std::vector<Triangle>& triangles) {
 		float EPO = 0.0f;
 		std::unordered_set<size_t> ancestor;
@@ -489,86 +470,97 @@ namespace MCPT::BVH::TEST {
 		return EPO;
 	}
 
-	float EPO_GPU(cl::Buffer bvh, cl::Buffer triangles) {
-		static auto initer = []() {
+	
+	
+
+
+	double LCV(cl::Buffer nodes, json camera) {
+		static auto initer = [&]() {
 			if (!programInited) {
 				prog = OpenCLBasic::createProgramFromFileWithHeader("./kernels/EPO.cl", "objdef.h");
 				programInited = true;
 			}
-			kernel = OpenCLBasic::createKernel(prog, "calculateEPO");
+			lcvKernel = OpenCLBasic::createKernel(prog, "LCV");
+
+			if (!rayGenInited) {
+				rayGenProg = OpenCLBasic::createProgramFromFileWithHeader("./kernels/rayGenerator.cl","objdef.h");
+				rayGenerator = OpenCLBasic::createKernel(rayGenProg, "generateRay");
+				rayGenInited = true;
+			}
 			return 0;
 		}();
 
-		int triCount = triangles.getInfo<CL_MEM_SIZE>() / sizeof(Triangle);
-		cl::Buffer epoBuffer = OpenCLBasic::newBuffer<float>(triCount);
-		cl::Buffer triAreaBuffer = OpenCLBasic::newBuffer<float>(triCount);
 
-		OpenCLBasic::setKernelArg(kernel, bvh, triangles, epoBuffer, triAreaBuffer, triCount);
-		OpenCLBasic::enqueueNDRange(kernel, triCount, cl::NullRange);
+		int width = camera["resolution"][0];
+		int height = camera["resolution"][1];
+		Camera cmr = parseCamera(camera);
 
-		std::vector<float> epoAns;
-		std::vector<float> areaAns;
-		epoAns.resize(triCount);
-		areaAns.resize(triCount);
-		OpenCLBasic::readBuffer(epoBuffer, epoAns.data());
-		OpenCLBasic::readBuffer(triAreaBuffer, areaAns.data());
+		auto cmrB = OpenCLBasic::newBuffer<Camera>(1, (void*)(&cmr));
+		auto rayB = OpenCLBasic::newBuffer<Ray>(width * height);
+		OpenCLBasic::setKernelArg(rayGenerator, cmrB, rayB);
+		OpenCLBasic::enqueueNDRange(rayGenerator, { (size_t)width,(size_t)height }, cl::NullRange);
 
+		auto countB = OpenCLBasic::newBuffer<int>(width * height);
+		OpenCLBasic::setKernelArg(lcvKernel, rayB, nodes, countB);
+		OpenCLBasic::enqueueNDRange(lcvKernel, width * height, cl::NullRange);
 
-		double count = 0.0;
-		for (int i = 0; i < epoAns.size(); ++i) {
-			count += epoAns[i];
+		auto finalC = OpenCLBasic::readBuffer<int>(countB);
+
+		double e = 0.0, e2 = 0.0;
+		for (auto& f : finalC) {
+			e += f;
+			e2 += f * f;
 		}
-		double area = 0.0;
-		for (int i = 0; i < areaAns.size(); ++i) {
-			area += areaAns[i];
-		}
-		//std::cout << "GPU: " << count << " " << area << std::endl;
-		count /= area;
-		return count;
+		e /= (width * height);
+		e2 /= (width * height);
+		return sqrt(e2 - e * e);
 	}
 
-	float Quad_EPO_GPU(cl::Buffer bvh, cl::Buffer triangles) {
-		static auto initer = []() {
+	double QuadLCV(cl::Buffer nodes, json camera) {
+		static auto initer = [&]() {
 			if (!programInited) {
 				prog = OpenCLBasic::createProgramFromFileWithHeader("./kernels/EPO.cl", "objdef.h");
 				programInited = true;
 			}
-			quadKernel = OpenCLBasic::createKernel(prog, "calculateQuadEPO");
+			quadLCVKernel = OpenCLBasic::createKernel(prog, "QuadLCV");
+
+			if (!rayGenInited) {
+				rayGenProg = OpenCLBasic::createProgramFromFileWithHeader("./kernels/rayGenerator.cl", "objdef.h");
+				rayGenerator = OpenCLBasic::createKernel(rayGenProg, "generateRay");
+				rayGenInited = true;
+			}
 			return 0;
 		}();
+		
+		int width = camera["resolution"][0];
+		int height = camera["resolution"][1];
+		Camera cmr = parseCamera(camera);
 
-		int triCount = triangles.getInfo<CL_MEM_SIZE>() / sizeof(Triangle);
-		int offset = bvh.getInfo<CL_MEM_SIZE>() / sizeof(QuadBVHNode) - triCount;
-		cl::Buffer epoBuffer = OpenCLBasic::newBuffer<float>(triCount);
-		cl::Buffer triAreaBuffer = OpenCLBasic::newBuffer<float>(triCount);
+		auto cmrB = OpenCLBasic::newBuffer<Camera>(1, (void*)(&cmr));
+		auto rayB = OpenCLBasic::newBuffer<Ray>(width * height);
+		OpenCLBasic::setKernelArg(rayGenerator, cmrB, rayB);
+		OpenCLBasic::enqueueNDRange(rayGenerator, { (size_t)width,(size_t)height }, cl::NullRange);
 
-		OpenCLBasic::setKernelArg(quadKernel, bvh, triangles, epoBuffer, triAreaBuffer, offset);
-		OpenCLBasic::enqueueNDRange(quadKernel, triCount, cl::NullRange);
+		auto countB = OpenCLBasic::newBuffer<int>(width * height);
+		OpenCLBasic::setKernelArg(quadLCVKernel, rayB, nodes, countB);
+		OpenCLBasic::enqueueNDRange(quadLCVKernel, width * height, cl::NullRange);
 
-		std::vector<float> epoAns;
-		std::vector<float> areaAns;
-		epoAns.resize(triCount);
-		areaAns.resize(triCount);
-		OpenCLBasic::readBuffer(epoBuffer, epoAns.data());
-		OpenCLBasic::readBuffer(triAreaBuffer, areaAns.data());
+		auto finalC = OpenCLBasic::readBuffer<int>(countB);
 
-		double count = 0.0;
-		for (int i = 0; i < epoAns.size(); ++i) {
-			count += epoAns[i];
+		double e = 0.0, e2 = 0.0;
+		for (auto& f : finalC) {
+			e += f;
+			e2 += f * f;
 		}
-		double area = 0.0;
-		for (int i = 0; i < areaAns.size(); ++i) {
-			area += areaAns[i];
-		}
-		//std::cout << "GPU: " << count << " " << area << std::endl;
-		count /= area;
-		return count;
+		e /= (width * height);
+		e2 /= (width * height);
+		return sqrt(e2 - e * e);
 	}
 
 
+	
 
-
-	float LCV(const std::vector<BVHNode>& node, const Camera& camera) {
+	double LCV(const std::vector<BVHNode>& node, const Camera& camera) {
 		std::vector<int> stack;
 		stack.reserve(256);
 
@@ -691,199 +683,165 @@ namespace MCPT::BVH::TEST {
 	}
 
 
-
-	void test() {
-		auto directory = Config::GETDIRECTORY();
-		auto objname = Config::GETOBJNAME();
-
-
-		auto triangles = loadObj(directory, objname);
-		std::cout << objname << " " << triangles.size() << std::endl;
+}
 
 
 
-		auto bvhtype = Config::BVHTYPE();
-		std::unique_ptr< CPUBVH > bvh;
-		std::cout << bvhtype << std::endl;
-
-		if (bvhtype == "hlbvh") {
-			bvh = std::make_unique< HLBVH<CPU> >(triangles);
+namespace MCPT::BVH::TEST {
+	double SAH(const std::vector<BVHNode>& node) {
+		double sahAns = 0.0f;
+		for (size_t i = 0; i < (node.size() >> 1); ++i) {
+			sahAns += Cinn * AREA(node[i].bbmin, node[i].bbmax);
 		}
-		else if (bvhtype == "treelet") {
-			auto p = std::make_unique< HLBVH<CPU> >(triangles);
-			bvh = std::make_unique< TreeletBVH<CPU> >(p->releaseBVH());
+		for (size_t i = (node.size() >> 1); i < node.size(); ++i) {
+			sahAns += Ctri * AREA(node[i].bbmin, node[i].bbmax);
 		}
-		else if (bvhtype == "treeletGPU") {
-			goto GPUBVH;
+		sahAns /= AREA(node[0].bbmin, node[0].bbmax);
+
+		return sahAns;
+	}
+	double SAH(cl::Buffer nodeB) {
+		static auto initer = []() {
+			OpenCLBasic::init();
+			return 0;
+		}();
+		auto node = OpenCLBasic::readBuffer<BVHNode>(nodeB);
+		double sahAns = 0.0f;
+		for (size_t i = 0; i < (node.size() >> 1); ++i) {
+			sahAns += Cinn * AREA(node[i].bbmin, node[i].bbmax);
 		}
+		for (size_t i = (node.size() >> 1); i < node.size(); ++i) {
+			sahAns += Ctri * AREA(node[i].bbmin, node[i].bbmax);
+		}
+		sahAns /= AREA(node[0].bbmin, node[0].bbmax);
 
-		if (!Config::USEQUAD()) {
-			{
-				auto& node = bvh->getBVH();
-				auto sah = SAH(node);
-				std::cout << "SAH: " << sah << std::endl;
+		return sahAns;
+	}
+	double SAH(const std::vector<QuadBVHNode>& node, int objCount) {
+		double sahAns = 0.0f;
+		auto innerNodeCount = node.size() - objCount;
+		for (size_t i = 0; i < innerNodeCount; ++i) {
+			int childCount = 4;
+			if (node[i].children.y < 0) --childCount;
+			if (node[i].children.w < 0) --childCount;
+			sahAns += childCount * (Cinn / 2.0) * AREA(node[i].bbmin, node[i].bbmax);
+		}
+		for (size_t i = innerNodeCount; i < node.size(); ++i) {
+			sahAns += Ctri * AREA(node[i].bbmin, node[i].bbmax);
+		}
+		sahAns /= AREA(node[0].bbmin, node[0].bbmax);
 
-				/*auto epo = EPO(node, triangles);
-				std::cout << "EPO: " << epo << std::endl;*/
+		return sahAns;
+	}
 
 
-				OpenCLBasic::init();
-				cl::Buffer bvhB = OpenCLBasic::newBuffer<BVHNode>(node.size(), const_cast<BVHNode*>(node.data()));
-				cl::Buffer triB = OpenCLBasic::newBuffer<Triangle>(triangles.size(), const_cast<Triangle*>(triangles.data()));
-
-				auto epogpu = EPO_GPU(bvhB, triB);
-				std::cout << "EPO_GPU: " << epogpu << std::endl;
-
-
-				auto camerajson = Config::GETCAMERA();
-				if (!camerajson.empty()) {
-					auto camera = Auxiliary::parseCamera(camerajson);
-					auto lcv = LCV(node, camera);
-					std::cout << "LCV: " << lcv << std::endl;
-				}
+	double EPO(cl::Buffer bvh, cl::Buffer triangles) {
+		static auto initer = []() {
+			if (!programInited) {
+				prog = OpenCLBasic::createProgramFromFileWithHeader("./kernels/EPO.cl", "objdef.h");
+				programInited = true;
 			}
+			kernel = OpenCLBasic::createKernel(prog, "calculateEPO");
+			return 0;
+		}();
+
+		int triCount = triangles.getInfo<CL_MEM_SIZE>() / sizeof(Triangle);
+		cl::Buffer epoBuffer = OpenCLBasic::newBuffer<float>(triCount);
+		cl::Buffer triAreaBuffer = OpenCLBasic::newBuffer<float>(triCount);
+
+		OpenCLBasic::setKernelArg(kernel, bvh, triangles, epoBuffer, triAreaBuffer, triCount);
+		OpenCLBasic::enqueueNDRange(kernel, triCount, cl::NullRange);
+
+		std::vector<float> epoAns;
+		std::vector<float> areaAns;
+		epoAns.resize(triCount);
+		areaAns.resize(triCount);
+		OpenCLBasic::readBuffer(epoBuffer, epoAns.data());
+		OpenCLBasic::readBuffer(triAreaBuffer, areaAns.data());
+
+
+		double count = 0.0;
+		for (int i = 0; i < epoAns.size(); ++i) {
+			count += epoAns[i];
+		}
+		double area = 0.0;
+		for (int i = 0; i < areaAns.size(); ++i) {
+			area += areaAns[i];
+		}
+		count /= area;
+		return count;
+	}
+	double QuadEPO(cl::Buffer bvh, cl::Buffer triangles) {
+		static auto initer = []() {
+			if (!programInited) {
+				prog = OpenCLBasic::createProgramFromFileWithHeader("./kernels/EPO.cl", "objdef.h");
+				programInited = true;
+			}
+			quadKernel = OpenCLBasic::createKernel(prog, "calculateQuadEPO");
+			return 0;
+		}();
+
+		int triCount = triangles.getInfo<CL_MEM_SIZE>() / sizeof(Triangle);
+		int offset = bvh.getInfo<CL_MEM_SIZE>() / sizeof(QuadBVHNode) - triCount;
+		cl::Buffer epoBuffer = OpenCLBasic::newBuffer<float>(triCount);
+		cl::Buffer triAreaBuffer = OpenCLBasic::newBuffer<float>(triCount);
+
+		OpenCLBasic::setKernelArg(quadKernel, bvh, triangles, epoBuffer, triAreaBuffer, offset);
+		OpenCLBasic::enqueueNDRange(quadKernel, triCount, cl::NullRange);
+
+		std::vector<float> epoAns;
+		std::vector<float> areaAns;
+		epoAns.resize(triCount);
+		areaAns.resize(triCount);
+		OpenCLBasic::readBuffer(epoBuffer, epoAns.data());
+		OpenCLBasic::readBuffer(triAreaBuffer, areaAns.data());
+
+		double count = 0.0;
+		for (int i = 0; i < epoAns.size(); ++i) {
+			count += epoAns[i];
+		}
+		double area = 0.0;
+		for (int i = 0; i < areaAns.size(); ++i) {
+			area += areaAns[i];
+		}
+		count /= area;
+		return count;
+	}
+
+
+
+
+	void singleTest(cl::Buffer bvh, cl::Buffer triangles) {
+		auto config = Config::getConfig();
+		if ((bool)config["usequad"]) {
+			auto node = OpenCLBasic::readBuffer<QuadBVHNode>(bvh);
+			auto tri = OpenCLBasic::readBuffer<Triangle>(triangles);
+			std::cout << "SAH: " << SAH(node, tri.size()) << std::endl;
+			std::cout << "EPO: " << QuadEPO(bvh, triangles) << std::endl;
+
+			/*if (!config["camera"].empty) {
+				std::cout << "LCV: " << QuadLCV(bvh, config["camera"].obj);
+			}*/
 		}
 		else {
-			auto quadBVH = std::make_unique< SimpleBVHQuad<CPU> >(bvh->releaseBVH());
-			auto& node = quadBVH->getQuadBVH();
-			auto objCount = quadBVH->getObjectCount();
+			std::cout << "SAH: " << SAH(bvh) << std::endl;
+			std::cout << "EPO: " << EPO(bvh, triangles) << std::endl;
 
-			auto sah = SAH(node, objCount);
-			std::cout << "Quad SAH: " << sah << std::endl;
-
-			OpenCLBasic::init();
-			
-			cl::Buffer bvhB = OpenCLBasic::newBuffer<BVHNode>(node.size(), const_cast<QuadBVHNode*>(node.data()));
-			cl::Buffer triB = OpenCLBasic::newBuffer<Triangle>(triangles.size(), const_cast<Triangle*>(triangles.data()));
-
-			//auto epo = EPOQuad(node, triangles);
-			auto epogpu = Quad_EPO_GPU(bvhB, triB);
-			std::cout << "EPO: " << epogpu << std::endl;
-		}
-		return;
-
-
-		// GPU Part
-	GPUBVH:
-		{
-			OpenCLBasic::init();
-
-			auto p = std::make_unique< HLBVH<CPU> >(triangles);
-			auto node = p->releaseBVH();
-
-			cl::Buffer bvhB = OpenCLBasic::newBuffer<BVHNode>(node.size(), const_cast<BVHNode*>(node.data()));
-			cl::Buffer triB = OpenCLBasic::newBuffer<Triangle>(triangles.size(), const_cast<Triangle*>(triangles.data()));
-
-			auto gpubvh = std::make_unique< TreeletBVH<GPU> >(bvhB, triB);
-
-			OpenCLBasic::readBuffer(gpubvh->getBuffer().first, node.data());
-			auto sah = SAH(node);
-			std::cout << "SAH: " << sah << std::endl;
-
-			auto tri = OpenCLBasic::readBuffer<Triangle>(triB);
-			//auto epo = EPO(node, tri);
-			//std::cout << "EPO" << epo << std::endl;
-			auto epogpu = EPO_GPU(gpubvh->getBuffer().first, gpubvh->getBuffer().second);
-			std::cout << "EPO_GPU: " << epogpu << std::endl;
-
-			auto camerajson = Config::GETCAMERA();
-			if (!camerajson.empty()) {
-				auto camera = Auxiliary::parseCamera(camerajson);
-				auto lcv = LCV(node, camera);
-				std::cout << "LCV: " << lcv << std::endl;
-			}
+			/*if (!config["camera"].empty) {
+				std::cout << "LCV: " << LCV(bvh, config["camera"].obj);
+			}*/
 		}
 	}
 
-
-	void testmodel(const std::string & objname, json camerajson) {
-		auto directory = Config::GETDIRECTORY();
-
-
-		auto triangles = loadObj(directory, objname);
-		std::cout << objname << " " << triangles.size() << std::endl;
-
-
-		auto bvhtype = Config::BVHTYPE();
-		std::unique_ptr< CPUBVH > bvh;
-		std::cout << bvhtype << std::endl;
-
-		if (bvhtype == "hlbvh") {
-			bvh = std::make_unique< HLBVH<CPU> >(triangles);
-		}
-		else if (bvhtype == "treelet") {
-			auto p = std::make_unique< HLBVH<CPU> >(triangles);
-			bvh = std::make_unique< TreeletBVH<CPU> >(p->releaseBVH());
-		}
-		else if (bvhtype == "treeletGPU") {
-			goto GPUBVH;
-		}
-
-		{
-			auto& node = bvh->getBVH();
-			auto sah = SAH(node);
-			std::cout << "SAH: " << sah << std::endl;
-
-			/*auto epo = EPO(node, triangles);
-			std::cout << "EPO: " << epo << std::endl;*/
-
-
-			OpenCLBasic::init();
-			cl::Buffer bvhB = OpenCLBasic::newBuffer<BVHNode>(node.size(), const_cast<BVHNode*>(node.data()));
-			cl::Buffer triB = OpenCLBasic::newBuffer<Triangle>(triangles.size(), const_cast<Triangle*>(triangles.data()));
-
-			auto epogpu = EPO_GPU(bvhB, triB);
-			std::cout << "EPO_GPU: " << epogpu << std::endl;
-
-			if (!camerajson.empty()) {
-				auto camera = Auxiliary::parseCamera(camerajson);
-				auto lcv = LCV(node, camera);
-				std::cout << "LCV: " << lcv << std::endl;
-			}
-			return;
-		}
-
-
-		// GPU Part
-	GPUBVH:
-		{
-			OpenCLBasic::init();
-
-			auto p = std::make_unique< HLBVH<CPU> >(triangles);
-			auto node = p->releaseBVH();
-
-			cl::Buffer bvhB = OpenCLBasic::newBuffer<BVHNode>(node.size(), const_cast<BVHNode*>(node.data()));
-			cl::Buffer triB = OpenCLBasic::newBuffer<Triangle>(triangles.size(), const_cast<Triangle*>(triangles.data()));
-
-			auto gpubvh = std::make_unique< TreeletBVH<GPU> >(bvhB, triB);
-
-			OpenCLBasic::readBuffer(gpubvh->getBuffer().first, node.data());
-			auto sah = SAH(node);
-			std::cout << "SAH: " << sah << std::endl;
-
-			auto tri = OpenCLBasic::readBuffer<Triangle>(triB);
-			//auto epo = EPO(node, tri);
-			//std::cout << "EPO" << epo << std::endl;
-			auto epogpu = EPO_GPU(gpubvh->getBuffer().first, gpubvh->getBuffer().second);
-			std::cout << "EPO_GPU: " << epogpu << std::endl;
-
-			if (!camerajson.empty()) {
-				auto camera = Auxiliary::parseCamera(camerajson);
-				auto lcv = LCV(node, camera);
-				std::cout << "LCV: " << lcv << std::endl;
-			}
-		}
-	}
-
-
-	void testall() {
+	
+	/*void testall() {
 		OpenCLBasic::init();
 
 		auto dir = Config::GETDIRECTORY();
 		auto objs = Config::GETOBJS();
 
 		json cmr;
-		
+
 		std::vector<std::string> models;
 		for (int i = 0; i < objs.size(); ++i) {
 			models.push_back(objs[i].get<std::string>());
@@ -908,10 +866,180 @@ namespace MCPT::BVH::TEST {
 		};
 
 		for (const auto& model : models) {
-			testmodel(model,cmr);
+			testmodel(model, cmr);
 			std::cout << std::endl;
 		}
+	}*/
 
+
+	void testall() {
+		OpenCLBasic::init();
+		auto dir = Config::GETDIRECTORY();
+		auto objs = Config::GETOBJS();
+
+		for (const auto& obj : objs) {
+			auto objStr = obj["name"].get<std::string>();
+			auto triangles = loadObj(dir, objStr);
+			std::cout << "Object Name: " << objStr << " " << triangles.size() << std::endl;
+			
+			auto bvhsToTest = obj["bvhs"];
+			auto cameras = obj["cameras"];
+			
+			std::unique_ptr< HLBVH<CPU> > hlbvh;
+			std::unique_ptr< TreeletBVH<CPU> > treelet;
+			std::unique_ptr< TreeletBVH<GPU> > treeletGPU;
+			std::unique_ptr< SimpleBVHQuad<CPU> > quad_hlbvh;
+			std::unique_ptr< SimpleBVHQuad<CPU> > quad_treelet;
+
+			for (const auto& bvhtest : bvhsToTest) {
+				auto bvhStr = bvhtest.get<std::string>();
+				std::cout << "BVH type: " << bvhStr << std::endl;
+				if (bvhStr == "hlbvh") {
+					if (hlbvh == nullptr)
+						hlbvh = std::make_unique< HLBVH<CPU> >(triangles);
+
+					auto& node = hlbvh->getBVH();
+					cl::Buffer bvhBuffer = OpenCLBasic::newBuffer<BVHNode>(node.size(), (void*)node.data());
+					cl::Buffer triBuffer = OpenCLBasic::newBuffer<Triangle>(triangles.size(), (void*)triangles.data());
+
+					std::cout << "SAH: " << SAH(node) << std::endl;
+					std::cout << "EPO: " << EPO(bvhBuffer, triBuffer) << std::endl;
+					
+					std::vector<double> lcvs;
+					for (const auto& camera : cameras) {
+						auto lcv = LCV(bvhBuffer, camera);
+						lcvs.push_back(lcv);
+						std::cout << "Camera1: " << lcv << std::endl;
+					}
+					if (!lcvs.empty()) {
+						double sum = 0.0;
+						for (auto i : lcvs) sum += i;
+						std::cout << "LCV: " << sum / lcvs.size() << std::endl;
+					}
+				}
+				else if (bvhStr == "treelet") {
+					if (treelet == nullptr) {
+						if (hlbvh == nullptr) {
+							hlbvh = std::make_unique< HLBVH<CPU> >(triangles);
+						}
+						treelet = std::make_unique< TreeletBVH<CPU> >(hlbvh->getBVH());
+					}
+
+					auto& node = treelet->getBVH();
+					cl::Buffer bvhBuffer = OpenCLBasic::newBuffer<BVHNode>(node.size(), (void*)node.data());
+					cl::Buffer triBuffer = OpenCLBasic::newBuffer<Triangle>(triangles.size(), (void*)triangles.data());
+
+					std::cout << "SAH: " << SAH(treelet->getBVH()) << std::endl;
+					std::cout << "EPO: " << EPO(bvhBuffer, triBuffer) << std::endl;
+
+					std::vector<double> lcvs;
+					for (const auto& camera : cameras) {
+						auto lcv = LCV(bvhBuffer, camera);
+						lcvs.push_back(lcv);
+						std::cout << "Camera1: " << lcv << std::endl;
+					}
+					if (!lcvs.empty()) {
+						double sum = 0.0;
+						for (auto i : lcvs) sum += i;
+						std::cout << "LCV: " << sum / lcvs.size() << std::endl;
+					}
+				}
+				else if (bvhStr == "treeletGPU") {
+					if (treeletGPU == nullptr) {
+						if (hlbvh == nullptr) {
+							hlbvh = std::make_unique< HLBVH<CPU> >(triangles);
+						}
+						auto& node = hlbvh->getBVH();
+						cl::Buffer bvhBuffer = OpenCLBasic::newBuffer<BVHNode>(node.size(), (void*)node.data());
+						cl::Buffer triBuffer = OpenCLBasic::newBuffer<Triangle>(triangles.size(), (void*)triangles.data());
+						treeletGPU = std::make_unique< TreeletBVH<GPU> >(bvhBuffer, triBuffer);
+					}
+					auto [bvhB, triB] = treeletGPU->getBuffer();
+					std::cout << "SAH: " << SAH(bvhB) << std::endl;
+					std::cout << "EPO: " << EPO(bvhB,triB) << std::endl;
+					
+					std::vector<double> lcvs;
+					for (const auto& camera : cameras) {
+						auto lcv = LCV(bvhB, camera);
+						lcvs.push_back(lcv);
+						std::cout << "Camera1: " << lcv << std::endl;
+					}
+					if (!lcvs.empty()) {
+						double sum = 0.0;
+						for (auto i : lcvs) sum += i;
+						std::cout << "LCV: " << sum / lcvs.size() << std::endl;
+					}
+				}
+				else if (bvhStr == "quadhlbvh") {
+					if (quad_hlbvh == nullptr) {
+						if (hlbvh == nullptr)
+							hlbvh = std::make_unique< HLBVH<CPU> >(triangles);
+						quad_hlbvh = std::make_unique< SimpleBVHQuad<CPU> >(hlbvh->getBVH());
+					}
+					auto& quadBVHNode = quad_hlbvh->getQuadBVH();
+					auto objCount = quad_hlbvh->getObjectCount();
+					std::cout << "SAH: " << SAH(quadBVHNode, objCount) << std::endl;
+					
+					auto quadbvhB = OpenCLBasic::newBuffer<QuadBVHNode>(quadBVHNode.size(), (void*)quadBVHNode.data());
+					auto tB = OpenCLBasic::newBuffer<Triangle>(triangles.size(), (void*)triangles.data());
+					std::cout << "EPO: " << QuadEPO(quadbvhB, tB) << std::endl;
+
+					std::vector<double> lcvs;
+					for (const auto& camera : cameras) {
+						auto lcv = QuadLCV(quadbvhB, camera);
+						lcvs.push_back(lcv);
+						std::cout << "Camera1: " << lcv << std::endl;
+					}
+					if (!lcvs.empty()) {
+						double sum = 0.0;
+						for (auto i : lcvs) sum += i;
+						std::cout << "LCV: " << sum / lcvs.size() << std::endl;
+					}
+				}
+				else if (bvhStr == "quadtreelet") {
+					if (quad_treelet == nullptr) {
+						if (treelet == nullptr && treeletGPU == nullptr) {
+							if (hlbvh == nullptr)
+								hlbvh = std::make_unique< HLBVH<CPU> >(triangles);
+							auto& node = hlbvh->getBVH();
+							cl::Buffer bvhBuffer = OpenCLBasic::newBuffer<BVHNode>(node.size(), (void*)node.data());
+							cl::Buffer triBuffer = OpenCLBasic::newBuffer<Triangle>(triangles.size(), (void*)triangles.data());
+							treeletGPU = std::make_unique< TreeletBVH<GPU> >(bvhBuffer, triBuffer);
+						}
+						if (treeletGPU != nullptr) {
+							auto [bF, tF] = treeletGPU->getBuffer();
+							auto node = OpenCLBasic::readBuffer<BVHNode>(bF);
+							auto tri = OpenCLBasic::readBuffer<Triangle>(tF);
+							quad_treelet = std::make_unique< SimpleBVHQuad<CPU> >(node);
+						}
+						else {
+							quad_treelet = std::make_unique< SimpleBVHQuad<CPU> >(treelet->getBVH());
+						}
+					}
+
+					auto& quadBVHNode = quad_treelet->getQuadBVH();
+					auto objCount = quad_treelet->getObjectCount();
+					std::cout << "SAH: " << SAH(quadBVHNode, objCount) << std::endl;
+
+					auto quadbvhB = OpenCLBasic::newBuffer<QuadBVHNode>(quadBVHNode.size(), (void*)quadBVHNode.data());
+					auto tB = OpenCLBasic::newBuffer<Triangle>(triangles.size(), (void*)triangles.data());
+					std::cout << "EPO: " << QuadEPO(quadbvhB, tB) << std::endl;
+
+					std::vector<double> lcvs;
+					for (const auto& camera : cameras) {
+						auto lcv = QuadLCV(quadbvhB, camera);
+						lcvs.push_back(lcv);
+						std::cout << "Camera1: " << lcv << std::endl;
+					}
+					if (!lcvs.empty()) {
+						double sum = 0.0;
+						for (auto i : lcvs) sum += i;
+						std::cout << "LCV: " << sum / lcvs.size() << std::endl;
+					}
+				}
+			}
+			std::cout << std::endl;
+		}
+		
 	}
 }
-

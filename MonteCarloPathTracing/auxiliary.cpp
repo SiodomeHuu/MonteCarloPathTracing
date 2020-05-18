@@ -18,6 +18,28 @@ float Auxiliary::AREA(float4 bbmin, float4 bbmax) {
 }
 
 Camera Auxiliary::parseCamera(const json& jsonCamera) {
+	if (jsonCamera.empty()) {
+		float4 position = { 302.353668, 410.221863, -135.232559, 0.0 };
+		float4 lookat = { 301.5317943152072, 409.8798428566743, -134.7769869773685, 0.0 };
+
+		float4 direction = lookat - position;
+		float4 up = { 0,1,0,0 };
+
+		float4 horizontal = cross(direction, up);
+		direction = normalize(direction);
+
+		up = normalize(cross(horizontal, direction));
+		horizontal = normalize(horizontal);
+
+		return Camera {
+			position, direction, up, horizontal,
+			1, //fov
+			0, //tmin
+			0, //perspective
+			0 //padding
+		};
+	}
+
 	Camera ans = { 0 };
 	ans.cameraType = 0; // always perspective camera
 

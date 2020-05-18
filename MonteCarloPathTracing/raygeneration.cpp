@@ -66,3 +66,6 @@ void MCPT::RayGeneration::init()
 	}();
 }
 
+void MCPT::RayGeneration::resetCamera(Camera cmr) {
+	OpenCLBasic::writeBuffer(cameraBuffer, &cmr);
+}

@@ -85,7 +85,11 @@ __kernel void shade(
 	Hit myHit = hits[id];
 	int materialID = myHit.materialID;
 
-	colorBuffer[id].s012 = fabs(normalize(myHit.normal.s012)); rays[id].term_depth.w |= 0xFF000000;return;
+#ifdef MCPT_TEST_BVH
+	colorBuffer[id].s012 = fabs(normalize(myHit.normal.s012));
+	rays[id].term_depth.w |= 0xFF000000;
+	return;
+#endif
 
 	if(rays[id].term_depth.w & 0xFF000000) {
 		return;

@@ -1,6 +1,7 @@
 #pragma once
 #include "oclbasic.h"
 #include <memory>
+#include "objdef.h"
 
 namespace MCPT::RayGeneration {
 
@@ -13,6 +14,7 @@ namespace MCPT::RayGeneration {
 	};
 	
 	RayBase* generateRay();
+	void resetCamera(Camera cmr);
 
 	void init();
 }

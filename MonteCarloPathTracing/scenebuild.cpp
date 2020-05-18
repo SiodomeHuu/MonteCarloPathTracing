@@ -10,6 +10,8 @@
 #include "BVH/treeletBVH.h"
 #include "BVH/simpleQuad.h"
 
+#include "bvhtest.h"
+
 using namespace MCPT;
 using namespace MCPT::SceneBuild;
 
@@ -62,9 +64,11 @@ SceneCL::SceneCL(std::vector<MCPT::Triangle> tr, std::vector<MCPT::Material> mat
 		tr.normal = normalize(cross(tr.v[1] - tr.v[0], tr.v[2] - tr.v[0]));
 		tr.materialID.w = matIndices[i];
 	}
-
-	matBuffer = OpenCLBasic::newBuffer<Material>(materials.size(), materials.data());
-	matIDBuffer = OpenCLBasic::newBuffer<int>(matIndices.size(), matIndices.data());
+	if (!materials.empty()) {
+		matBuffer = OpenCLBasic::newBuffer<Material>(materials.size(), materials.data());
+		matIDBuffer = OpenCLBasic::newBuffer<int>(matIndices.size(), matIndices.data());
+	}
+	
 	rayCount = 0;
 	auto bvhtype = Config::BVHTYPE();
 	if (bvhtype == "hlbvh") {
@@ -86,11 +90,19 @@ SceneCL::SceneCL(std::vector<MCPT::Triangle> tr, std::vector<MCPT::Material> mat
 			auto bvh = quadbvhpt->getQuadBVH();
 			trBuffer = OpenCLBasic::newBuffer<Triangle>(triangles.size(), triangles.data());
 			bvhBuffer = OpenCLBasic::newBuffer<QuadBVHNode>(bvh.size(), bvh.data());
+
+			if ((bool)Config::getConfig()["testbvh"]) {
+				BVH::TEST::singleTest(bvhBuffer, trBuffer);
+			}
 		}
 		else {
 			auto bvh = bvhpt->getBVH();
 			trBuffer = OpenCLBasic::newBuffer<Triangle>(triangles.size(), triangles.data());
 			bvhBuffer = OpenCLBasic::newBuffer<BVHNode>(bvh.size(), bvh.data());
+
+			if ((bool)Config::getConfig()["testbvh"]) {
+				BVH::TEST::singleTest(bvhBuffer, trBuffer);
+			}
 		}
 		
 		return;
@@ -101,8 +113,12 @@ GPUBVH:
 		auto bvh = temp->releaseBVH();
 		bvhBuffer = OpenCLBasic::newBuffer<BVHNode>(bvh.size(), bvh.data());
 		trBuffer = OpenCLBasic::newBuffer<Triangle>(triangles.size(), triangles.data());
-
+		
 		gpubvhpt = std::make_unique<BVH::TreeletBVH<BVH::GPU>>(bvhBuffer, trBuffer);
+
+		if ((bool)Config::getConfig()["testbvh"]) {
+			BVH::TEST::singleTest(bvhBuffer, trBuffer);
+		}
 	}
 	return;
 }
@@ -173,8 +189,14 @@ void MCPT::SceneBuild::init() {
 			intersectKernel = OpenCLBasic::createKernel(intersectProgram, "intersectRays");
 		}
 
-		shadeProgram = OpenCLBasic::createProgramFromFileWithHeader(Config::SHADEKERNELPATH(), "objdef.h",("-D MAX_DEPTH="+std::to_string(Config::MAXDEPTH())));
-		shadeKernel = OpenCLBasic::createKernel(shadeProgram, "shade");
+		if (Config::TESTBVH()) {
+			shadeProgram = OpenCLBasic::createProgramFromFileWithHeader(Config::SHADEKERNELPATH(), "objdef.h", ("-D MCPT_TEST_BVH=1 -D MAX_DEPTH=" + std::to_string(Config::MAXDEPTH())));
+			shadeKernel = OpenCLBasic::createKernel(shadeProgram, "shade");
+		}
+		else {
+			shadeProgram = OpenCLBasic::createProgramFromFileWithHeader(Config::SHADEKERNELPATH(), "objdef.h", ("-D MAX_DEPTH=" + std::to_string(Config::MAXDEPTH())));
+			shadeKernel = OpenCLBasic::createKernel(shadeProgram, "shade");
+		}
 	}
 	else {
 		throw "Not Implemented";

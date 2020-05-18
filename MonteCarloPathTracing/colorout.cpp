@@ -24,7 +24,9 @@ namespace {
 	cl::Buffer sampleCount;
 	std::vector<int> constantVec;
 
-	int attemptCount = 0;
+	std::vector<float4> t;
+
+	long long int attemptCount = 0;
 
 }
 
@@ -43,7 +45,6 @@ void MCPT::ColorOut::outputColorCL(cl::ImageGL& tex,cl::Buffer& bf) {
 
 		constantVec.resize(len, 0);
 
-		std::vector<float4> t;
 		t.resize(len, { 0,0,0,0 });
 
 		frameBuffer = OpenCLBasic::newBuffer<float4>(len,t.data());
@@ -52,7 +53,7 @@ void MCPT::ColorOut::outputColorCL(cl::ImageGL& tex,cl::Buffer& bf) {
 		return 0;
 	}();
 
-	if (attemptCount <= Config::MAXATTEPMT()) {
+	if (Config::TESTBVH() || attemptCount <= Config::MAXATTEPMT()) {
 		OpenCLBasic::setKernelArg(histKernel, bf, frameBuffer, sampleCount);
 		OpenCLBasic::enqueueNDRange(histKernel, { (size_t)Config::WIDTH()  , (size_t)Config::HEIGHT() }, cl::NullRange);
 
@@ -69,6 +70,11 @@ void MCPT::ColorOut::outputColorCL(cl::ImageGL& tex,cl::Buffer& bf) {
 
 		OpenCLBasic::setKernelArg(outKernel, tex, frameBuffer);
 		OpenCLBasic::enqueueNDRange(outKernel, { (size_t)Config::WIDTH()  , (size_t)Config::HEIGHT() }, cl::NullRange);
-	}
+	} 
+}
 
+void MCPT::ColorOut::refresh() {
+	OpenCLBasic::writeBuffer(frameBuffer, (void*)t.data());
+	attemptCount = 0;
+	OpenCLBasic::writeBuffer(sampleCount, (void*)constantVec.data());
 }

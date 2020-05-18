@@ -13,10 +13,10 @@ int main(int argc,char** argv) {
 		BVH::TEST::testall();
 		return 0;
 	}
-	else if (Config::TESTBVH()) {
+	/*else if (Config::TESTBVH()) {
 		BVH::TEST::test();
 		return 0;
-	}
+	}*/
 
 	OpenGL::init(argc, argv);
 	OpenCL::init();

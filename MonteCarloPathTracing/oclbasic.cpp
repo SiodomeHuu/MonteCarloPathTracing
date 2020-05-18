@@ -98,7 +98,7 @@ void OpenCLBasic::init() {
 
 
 #if (defined PT_OPENGL_COOP) && (defined PT_USE_NVIDIA)
-			if (Config::TESTBVH() || Config::TESTALL()) {
+			if (Config::TESTALL()) {
 				context = cl::Context(devices[0]);
 			}
 			else {
