@@ -146,12 +146,13 @@ void HLBVH<CPU>::build(std::vector<Triangle>&& triangles) {
 		};
 
 		auto DELTA = [CLZ](std::vector<MortonPrimitive>& mortonPrims, size_t left, size_t right) -> size_t {
-			return CLZ((int)(mortonPrims[left].mortonCode ^ mortonPrims[right].mortonCode));
+			int leftCode = mortonPrims[left].mortonCode;
+			int rightCode = mortonPrims[right].mortonCode;
+			return leftCode != rightCode ? CLZ(leftCode ^ rightCode) : (32 + CLZ(left ^ right));
 		};
 
 		auto findSplit = [DELTA](std::vector<MortonPrimitive>& mortonPrims, size_t left, size_t right)  -> size_t {
 			int target = DELTA(mortonPrims, left, right);
-			if (target == 32) return (right + left) >> 1;
 			do {
 				int mid = (right + left) >> 1;
 				if (DELTA(mortonPrims, left, mid) > target) left = mid;

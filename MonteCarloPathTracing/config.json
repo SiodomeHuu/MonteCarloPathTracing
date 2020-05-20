@@ -357,18 +357,18 @@
       "platform": "nvidia",
 
       "directory": "../Scene2/",
-      "objname": "erato-1.obj",
+      "objname": "coffee_maker.obj",
 
       "raygenerator": "kernels/rayGenerator.cl",
       "intersect": "kernels/intersect.cl",
       "shade": "kernels/shade.cl",
 
-      "maxdepth": 16,
+      "maxdepth": 1,
       "attempt": 1024,
 
       "camera": {
-        "position": [ 0, 10, 88.67 ],
-        "lookat": [ 0, 10, 87.67 ],
+        "position": [ -0.107859, 0.327987, 0.631535 ],
+        "lookat": [ -0.0441226, 0.0903819, -0.337734 ],
         "up": [ 0, 1, 0 ],
         "fov": 45,
         "resolution": [ 1280, 720 ]
@@ -977,5 +977,5 @@
       ]
     }
   ],
-  "configid" : 14
+  "configid" : 13
 }

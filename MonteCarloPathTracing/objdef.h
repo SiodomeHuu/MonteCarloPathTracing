@@ -13,7 +13,7 @@ namespace MCPT {
 #define __kernel
     
 #else
-	#define EPSILON 1e-5f
+	#define EPSILON 1e-7f
 #endif
 	typedef float16 Matrix;
 
