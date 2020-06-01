@@ -817,7 +817,7 @@ namespace MCPT::BVH::TEST {
 			auto node = OpenCLBasic::readBuffer<QuadBVHNode>(bvh);
 			auto tri = OpenCLBasic::readBuffer<Triangle>(triangles);
 			std::cout << "SAH: " << SAH(node, tri.size()) << std::endl;
-			//std::cout << "EPO: " << QuadEPO(bvh, triangles) << std::endl;
+			std::cout << "EPO: " << QuadEPO(bvh, triangles) << std::endl;
 
 			/*if (!config["camera"].empty) {
 				std::cout << "LCV: " << QuadLCV(bvh, config["camera"].obj);
@@ -825,7 +825,7 @@ namespace MCPT::BVH::TEST {
 		}
 		else {
 			std::cout << "SAH: " << SAH(bvh) << std::endl;
-			//std::cout << "EPO: " << EPO(bvh, triangles) << std::endl;
+			std::cout << "EPO: " << EPO(bvh, triangles) << std::endl;
 
 			/*if (!config["camera"].empty) {
 				std::cout << "LCV: " << LCV(bvh, config["camera"].obj);

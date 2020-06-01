@@ -55,6 +55,9 @@
     <Filter Include="BVH\QuadBVH">
       <UniqueIdentifier>{c3d09392-1dc8-4b76-b307-f7ff868e62fb}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Auxiliary\thirdparty">
+      <UniqueIdentifier>{c76d1a85-fc92-4617-a0d3-093378061895}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="oclbasic.h">
@@ -93,9 +96,6 @@
     <ClInclude Include="tiny_obj_loader.h">
       <Filter>Auxiliary\tinyobj</Filter>
     </ClInclude>
-    <ClInclude Include="thirdpartywrapper.h">
-      <Filter>Auxiliary</Filter>
-    </ClInclude>
     <ClInclude Include="bvhtest.h">
       <Filter>BVHTester</Filter>
     </ClInclude>
@@ -110,6 +110,12 @@
     </ClInclude>
     <ClInclude Include="BVH\simpleQuad.h">
       <Filter>BVH\QuadBVH</Filter>
+    </ClInclude>
+    <ClInclude Include="thirdpartywrapper.h">
+      <Filter>Auxiliary\thirdparty</Filter>
+    </ClInclude>
+    <ClInclude Include="quartzsceneparser.h">
+      <Filter>Auxiliary\thirdparty</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -146,9 +152,6 @@
     <ClCompile Include="tiny_obj_loader.cpp">
       <Filter>Auxiliary\tinyobj</Filter>
     </ClCompile>
-    <ClCompile Include="thirdpartywrapper.cpp">
-      <Filter>Auxiliary</Filter>
-    </ClCompile>
     <ClCompile Include="bvhtest.cpp">
       <Filter>BVHTester</Filter>
     </ClCompile>
@@ -163,6 +166,12 @@
     </ClCompile>
     <ClCompile Include="BVH\simpleQuad.cpp">
       <Filter>BVH\QuadBVH</Filter>
+    </ClCompile>
+    <ClCompile Include="thirdpartywrapper.cpp">
+      <Filter>Auxiliary\thirdparty</Filter>
+    </ClCompile>
+    <ClCompile Include="quartzsceneparser.cpp">
+      <Filter>Auxiliary\thirdparty</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

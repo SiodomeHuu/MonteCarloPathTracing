@@ -393,12 +393,14 @@ namespace {
 	cl::Program treeGPUProg;
 	cl::Kernel treeKernel;
 
-
+	cl::Kernel sahKernel;
 
 	void initProgramAndKernel() {
 		static auto initer = []() {
-			treeGPUProg = OpenCLBasic::createProgramFromFileWithHeader("./kernels/treeletBVH.cl","objdef.h");
+			treeGPUProg = OpenCLBasic::createProgramFromFileWithHeader("./kernels/treeletBVH.cl", "objdef.h"); // , "-D MCPT_ONE_WORKGROUP=1");
 			treeKernel = OpenCLBasic::createKernel(treeGPUProg, "reconstructTreelet");
+			
+			sahKernel = OpenCLBasic::createKernel(treeGPUProg, "calculateSAH");
 			return 0;
 		}();
 	}
@@ -425,9 +427,14 @@ TreeletBVH<GPU>::TreeletBVH(cl::Buffer node, cl::Buffer tri)
 	cl::Event ev;
 
 	try {
+		OpenCLBasic::setKernelArg(sahKernel, bvhNode, sahV, flagB, objNum);
+		OpenCLBasic::enqueueNDRange(sahKernel, objNum, cl::NullRange);
+
+		OpenCLBasic::getQueue().enqueueFillBuffer(flagB, 0, 0, objNum*sizeof(int));
+
 		OpenCLBasic::setKernelArg(treeKernel, bvhNode, sahV, flagB, objNum);
 		OpenCLBasic::enqueue1DKernelWithGroupCount(treeKernel, objNum, 32, nullptr, &ev);
-		//OpenCLBasic::getQueue().finish();
+		OpenCLBasic::getQueue().finish();
 	}
 	catch (cl::Error & e) {
 		std::cout << "Error: " << e.err() << " " << e.what() << std::endl;

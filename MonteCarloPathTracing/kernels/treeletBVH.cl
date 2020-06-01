@@ -238,9 +238,11 @@ __kernel void reconstructTreelet(
 	__local volatile char popt[128];      // 128 * 1 = 128bytes
 
 	__local volatile float cbuffer[64];   // (64) * 4 = 256bytes
-	//__local volatile int splitBuffer[32]; // (32) * 4 = 128bytes
 	__local volatile bool terminalFlag;
 
+	__local volatile SplitInnerNode toSplitBuffer[MAX_NODE]; // (7*3*4=48 bytes)
+	__local volatile int prefixSum[MAX_NODE]; //(7*4=28bytes)
+	__local volatile int2 SP_Free;
 
 	float rootArea = AREA(nodes[0].bbmin,nodes[0].bbmax);
 
@@ -254,12 +256,18 @@ __kernel void reconstructTreelet(
 			printf("Local size must be WARP_SIZE %d\n",WARP_SIZE);
 		return;
 	}
-	
+
 	if(groupID < numPrims) {
+#ifndef MCPT_ONE_WORKGROUP
 		int idx = groupID + numPrims - 1;
 		sahValue[idx] = (Ctri + Cleaf) * AREA(nodes[idx].bbmin, nodes[idx].bbmax) / rootArea;
 		idx = nodes[idx].parent;
-
+#else
+		int idx = 0;
+		if(groupID != 0) {
+			return;
+		}
+#endif
 		while(idx >= 0) {
 			if(lid == 0) {
 				int lc = nodes[idx].left;
@@ -269,13 +277,15 @@ __kernel void reconstructTreelet(
 					Cinn * (AREA(nodes[idx].bbmin,nodes[idx].bbmax) ) / rootArea;
 
 				terminalFlag = false;
+#ifndef MCPT_ONE_WORKGROUP
 				if(atomic_cmpxchg(flags+idx,0,1) != 1) { // another child not ready
 					terminalFlag = true;
 				}
+#endif
 			}
 			if(terminalFlag) { return; }
-			
-			
+
+
 			// Firstly: get nodes to reconstruct
 			PickQueueNode queueNode[MAX_NODE] = {};
 			float4 nodebbmax[MAX_NODE];
@@ -390,140 +400,158 @@ __kernel void reconstructTreelet(
 				}
 			}
 			RECONSTRUCT:
-			/*if(atomic_cmpxchg(flags+numPrims-1,0,1) != 1) {
-				//if(size != 7) {
-				//	*(flags+numPrims-1)=0;
-				//	goto OUT;
-				//}
-				printf("%d ",groupID);
-				printf("%d ",idx);
-				printf("%d ",NOW_NODE);
-				printf("%d\n", NOW_BIT);
-
-				for(int i=0;i<128;++i) {
-					printf("%f ",a[i]);
-					if(i%16==15) printf("\n");
+			/*if(lid==0&&groupID==0) {
+				printf("Reconstruct %d\n", idx);
+				printf("nownode: ");
+				for(int i=0;i<NOW_NODE;++i) {
+					printf("%d ",queueNode[i].id);
 				}
-				
-				for(int i=0;i<128;++i) {
-					printf("%f ",copt[i]);
-					if(i%16==15) printf("\n");
-				}
-				for(int i=0;i<128;++i) {
-					printf("%d ",popt[i]);
-					if(i%16==15) printf("\n");
-				}
-				printf("FreeBVH:\n");
+				printf("\nfreenode: ");
 				for(int i=0;i<NOW_NODE-1;++i) {
 					printf("%d ",freeBVHNode[i]);
 				}
-				printf("\nqueuenode:\n");
-				for(int i=0;i<NOW_NODE;++i) {
-					printf("(%d %f) ",queueNode[i].id,queueNode[i].sahValue);
-				}
-			} OUT:*/
-			// Then reconstruct
-			// __local splitBuffer[]
-			// int freeBVHNode[]
-			// __global nodes[]
-			// __local copt,popt
-			/*if(lid == 0) {
-				splitBuffer[0] = 
-			}
-			else {
-				splitBuffer[lid] = -1;
+				printf("\n");
 			}*/
-			
-			/*{
+			if(lid == 0) {
+				SP_Free = (int2)(1,1);
+				toSplitBuffer[0].parentCode = NOW_BIT;
+				toSplitBuffer[0].selfCode = popt[NOW_BIT];
+				toSplitBuffer[0].parentID = freeBVHNode[0];
+			}
+			/*if(lid==0&&groupID==0)
+				printf("%d %d\n",NOW_NODE, NOW_BIT);*/
+			while (SP_Free.x > 0) {
+				/*if(lid==0&&groupID==0)
+					printf("(%d %d)\n",SP_Free.x,SP_Free.y);*/
+				if(lid < SP_Free.x) {
+					SplitInnerNode i = toSplitBuffer[lid];
+					int leftCode = popt[i.selfCode];
+					int rightCode = popt[i.selfCode ^ i.parentCode];
+					int parentNodeID = i.parentID;
+
+					/*if(groupID==0&&lid==0) {
+						printf("%d:",lid);
+						printf("%d ",i.parentCode);
+						printf("%d ",i.selfCode);
+						printf("%d\n",i.parentID);
+					}
+					if(groupID==0&&lid==1) {
+						printf("%d:",lid);
+						printf("%d ",i.parentCode);
+						printf("%d ",i.selfCode);
+						printf("%d\n",i.parentID);
+					}*/
+
+					SplitInnerNode temp;
+					if(Count1Num(i.selfCode) == 1) {
+						int toRight = 31-clz(i.selfCode);
+						int node = queueNode[NOW_NODE-toRight-1].id;
+						nodes[parentNodeID].left = node;
+						nodes[node].parent = parentNodeID;
+
+						temp.parentID = -1;
+					}
+					else {
+						temp.parentCode = i.selfCode;
+						temp.selfCode = leftCode;
+						temp.parentID = parentNodeID;
+					}
+					toSplitBuffer[(lid<<1)] = temp;
+
+					if(Count1Num(i.selfCode ^ i.parentCode) == 1) {
+						int toRight = 31 - clz(i.selfCode ^ i.parentCode);
+						int node = queueNode[NOW_NODE-toRight-1].id;
+						nodes[parentNodeID].right = node;
+						nodes[node].parent = parentNodeID;
+
+						temp.parentID = -1;
+					}
+					else {
+						temp.parentCode = i.selfCode ^ i.parentCode;
+						temp.selfCode = rightCode;
+						temp.parentID = parentNodeID;
+					}
+					toSplitBuffer[(lid<<1)+1] = temp;
+				}
+				// split -> 2*node
+				// if leaf, parentID == -1
+				// else, parentID == parentNodeID to write
+				/*if(lid==0&&groupID==0) {
+					printf("toSplit: %d\n", SP_Free.x);
+					for(int i=0;i<SP_Free.x*2;++i) {
+						printf("%d %d %d\n",toSplitBuffer[i].parentCode,toSplitBuffer[i].selfCode,toSplitBuffer[i].parentID);
+					}
+				}*/
 				if(lid == 0) {
-					SplitInnerNode toSplitBuffer1[MAX_NODE];
-					toSplitBuffer1[0].parentCode = NOW_BIT;
-					toSplitBuffer1[0].selfCode = popt[NOW_BIT];
-					toSplitBuffer1[0].parentID = freeBVHNode[0];
-
-					SplitInnerNode toSplitBuffer2[MAX_NODE];
-
-					SplitInnerNode* toSplit = toSplitBuffer1;
-					SplitInnerNode* toSplitBack = toSplitBuffer2;
-
-					int toSP = 1;
-					int toSPBack = 0;
-					int freeNodeNow = 1;
-
-					while (toSP > 0) {
-						for(int x = 0; x < toSP; ++x) {
-							SplitInnerNode i = toSplit[x];
-							int leftCode = popt[i.selfCode];
-							int rightCode = popt[i.selfCode ^ i.parentCode];
-							int parentNodeID = i.parentID;
-
-							if(Count1Num(i.selfCode) == 1) {
-								int toRight = 31 - clz(i.selfCode);
-								int node = queueNode[NOW_NODE-toRight-1].id;
-								nodes[parentNodeID].left = node;
-								nodes[node].parent = parentNodeID;
-							}
-							else {
-								int freeNext = nodes[parentNodeID].left = freeBVHNode[freeNodeNow++];
-								toSplitBack[toSPBack].parentCode = i.selfCode;
-								toSplitBack[toSPBack].selfCode = leftCode;
-								toSplitBack[toSPBack].parentID = freeNext;
-								++toSPBack;
-								nodes[parentNodeID].left = freeNext;
-								nodes[freeNext].parent = parentNodeID;
-							}
-						
-							if(Count1Num(i.selfCode ^ i.parentCode) == 1) {
-								int toRight = 31 - clz(i.selfCode ^ i.parentCode);
-								int node = queueNode[NOW_NODE-toRight-1].id;
-								nodes[parentNodeID].right = node;
-								nodes[node].parent = parentNodeID;
-							}
-							else {
-								int freeNext = nodes[parentNodeID].right = freeBVHNode[freeNodeNow++];
-								toSplitBack[toSPBack].parentCode = i.selfCode ^ i.parentCode;
-								toSplitBack[toSPBack].selfCode = rightCode;
-								toSplitBack[toSPBack].parentID = freeNext;
-								++toSPBack;
-
-								nodes[parentNodeID].right = freeNext;
-								nodes[freeNext].parent = parentNodeID;
-							}
-						}
-						SplitInnerNode* tmp = toSplit;
-						toSplit = toSplitBack;
-						toSplitBack = tmp;
-						toSP = toSPBack;
-						toSPBack = 0;
+					prefixSum[0] = (toSplitBuffer[0].parentID>=0?1:0);
+					for(int i = 1; i < (SP_Free.x<<1); ++i) {
+						prefixSum[i] = prefixSum[i-1] + (toSplitBuffer[i].parentID>=0?1:0);
 					}
 				}
-			}*/
+				int allocCount = prefixSum[(SP_Free.x<<1)-1];
 
+				if(lid < (SP_Free.x<<1)) {
+					prefixSum[lid] -= (toSplitBuffer[lid].parentID>=0?1:0); // now exclusive
+					/*if(lid==0&&groupID==0) {
+						printf("alloc: %d\n",allocCount);
+						printf("%d-expref:",lid);
+						for(int x=0;x<(SP_Free.x<<1);++x) {
+							printf("%d ",prefixSum[x]);
+						}
+						printf("\n");
+					}*/
+					SplitInnerNode i = toSplitBuffer[lid];
+					if(i.parentID>=0) {
+						int selfNodeID = freeBVHNode[ SP_Free.y + prefixSum[lid] ];
+						if(lid&0x1)
+							nodes[ i.parentID ].right = selfNodeID;
+						else
+							nodes[ i.parentID ].left = selfNodeID;
+						nodes[ selfNodeID ].parent = i.parentID;
+						
+						i.parentID = selfNodeID;
+						toSplitBuffer[ prefixSum[lid] ] = i;
+						// shrink
+					}
+				}
+				if(lid == 0) {
+					SP_Free.x = allocCount;
+					SP_Free.y += allocCount;
+				}
+			}
 			// Refresh the SAH
-			/*{
-				if(lid < size) {
-					int nowBVHID = nodes[ queueNode[lid].id ].parent;
+			if(lid == 0) {
+				int sFlag[MAX_NODE-1] = {0};
+				int ssp = 0;
+				int rootOver = 0;
+				for(int i=0;i<NOW_NODE;++i) {
+					int nowNode = queueNode[i].id;
 					while(true) {
-						// 
-						nodes[nowBVHID].bbmin = #xxxx;
-						nodes[nowBVHID].bbmax = #xxxx;
-						sahValue[nowBVHID] = #xxxx;
-						if(nowBVHID == idx) {
+						nowNode = nodes[nowNode].parent;
+						__global BVHNode* node = nodes+nowNode;
+
+						int ready = 0;
+						for(int j=0;j<ssp;++j) {
+							if(sFlag[j] == nowNode) {
+								ready = 1;
+								break;
+							}
+						}
+						if(!ready) {
+							sFlag[ssp++] = nowNode;
 							break;
 						}
-						nowBVHID = nodes[nowBVHID].parent;
+
+						node->bbmin = min(nodes[node->left].bbmin,nodes[node->right].bbmin);
+						node->bbmax = max(nodes[node->left].bbmax,nodes[node->right].bbmax);
+						sahValue[nowNode] = sahValue[node->left]+sahValue[node->right]
+							+ Cinn*(AREA(node->bbmin,node->bbmax));
+						if(nowNode == freeBVHNode[0]) {
+							break;
+						}
 					}
 				}
-			}*/
-			/*if(lid == 0) {
-				for(int i = NOW_NODE - 2; i >= 0; --i) {
-					__global BVHNode* node = nodes+freeBVHNode[i];
-					node->bbmin = min(nodes[node->left].bbmin,nodes[node->right].bbmin);
-					node->bbmax = max(nodes[node->left].bbmax,nodes[node->right].bbmax);
-					sahValue[freeBVHNode[i]] = sahValue[node->left]+sahValue[node->right]
-						+ Cinn*(AREA(node->bbmin,node->bbmax));
-				}
-			}*/
+			}
 			idx = nodes[idx].parent;
 		}
 	}

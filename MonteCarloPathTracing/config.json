@@ -2,7 +2,7 @@
   "config": [
     {
       "bvhtype": "hlbvh",
-      "usequad" :  true,
+      "usequad": true,
       "width": 512,
       "height": 512,
       "platform": "nvidia",
@@ -30,7 +30,7 @@
     },
 
     {
-      "testbvh" :  true,
+      "testbvh": true,
       "bvhtype": "hlbvh",
       "usequad": true,
       "width": 768,
@@ -60,7 +60,7 @@
 
     {
       "bvhtype": "treelet",
-      "usequad" :  true,
+      "usequad": true,
       "width": 1280,
       "height": 720,
       "platform": "nvidia",
@@ -88,97 +88,9 @@
     },
 
     {
-      "testbvh": true,
-      "directory": "../Scene2/",
-      "objname": "hairball.obj",
-      "bvhtype" :  "treelet",
-      "usequad" :  true,
-      "width": 1600,
-      "height": 900,
-     # "camera": {
-     #   "position": [ -0.5, 3, 5.5 ],
-    #    "lookat": [ -0.5, 2, 0 ],
-     #   "up": [ 0, 1, 0 ],
-     #   "fov": 60,
-     #   "resolution": [ 1280, 720 ]
-     # }
-    }, # 3
-
-    {
-      "testbvh": true,
-      "opencl": true,
-      #"bvhtype": "treelet",
-      "usequad" :  true,
-      "width": 1600,
-      "height": 900,
-      "directory": "../Scene2/",
-      "objname": "sponza.obj",
-      "camera": {
-        "position": [ 302.353668, 410.221863, -135.232559 ],
-        "lookat": [ 301.5317943152072, 409.8798428566743, -134.7769869773685 ],
-        "up": [ 0, 1, 0 ],
-        "fov": 1.8,
-        "resolution": [ 1600, 900 ]
-      },
-      "raygenerator": "kernels/rayGenerator.cl",
-      "intersect": "kernels/intersect.cl",
-      "shade": "kernels/shade.cl",
-       "maxdepth": 16,
-      "attempt": 1024,
-      "platform": "nvidia"
-    },
-
-
-    {
-      "testbvh": true,
-      "bvhtype": "hlbvh",
-      #"usequad" :  true,
-      "width": 512,
-      "height": 512,
-
-      "directory": "../Scene/cbox/",
-      "objname": "cbox.obj"
-
-      # "camera": {
-      #  "position": [ 278, 273, -800 ],
-      #  "lookat": [ 278, 273, -799 ],
-      #  "up": [ 0, 1, 0 ],
-      #  "fov": 39.3077,
-      #  "resolution": [ 512, 512 ]
-      # }
-    },
-
-    {
-      "opencl": true,
-      "testbvh": true,
-      "bvhtype": "hlbvh",
-      #"usequad": true,
-      "width": 768,
-      "height": 512,
-
-      "directory": "../Scene/veach_mis/",
-      "objname": "mis.obj",
-
-      "camera": {
-        "position": [ 278, 273, -800 ],
-        "lookat": [ 278, 273, -799 ],
-        "up": [ 0, 1, 0 ],
-        "fov": 39.3077,
-        "resolution": [ 512, 512 ]
-      },
-      "platform": "nvidia",
-      "raygenerator": "kernels/rayGenerator.cl",
-      "intersect": "kernels/intersect.cl",
-      "shade": "kernels/shade.cl",
-      "maxdepth": 8,
-      "attempt": 512
-    },
-
-
-    {
       "testall": true,
       "directory": "../Scene2/",
-      "bvhtype" :  "treeletGPU",
+      "bvhtype": "treeletGPU",
       "objname": [
         "bmw.obj",
         "spaceship_new.obj",
@@ -193,7 +105,7 @@
         "powerplant.obj",
         "san-miguel.obj"
       ]
-    }, # 7
+    }, #3
     {
       "testall": true,
       "directory": "../Scene2/",
@@ -219,7 +131,7 @@
       "height": 512,
       "directory": "../Scene2/",
       "objname": "warriors.obj"
-    }, #10
+    }, #6
     {
       "testall": true,
       "directory": "../Scene2/",
@@ -317,9 +229,9 @@
       ]
     },
     {
-      "testall" : true,
+      "testall": true,
       "directory": "../Scene2/",
-      "objname" : [
+      "objname": [
         {
           "name": "bmw.obj",
           "bvhs": [],
@@ -350,14 +262,14 @@
 
     {
       "testbvh": true,
-      "bvhtype": "hlbvh",
+      "bvhtype": "treeletGPU",
 
       "width": 1280,
       "height": 720,
       "platform": "nvidia",
 
       "directory": "../Scene2/",
-      "objname": "coffee_maker.obj",
+      "objname": "powerplant.obj",
 
       "raygenerator": "kernels/rayGenerator.cl",
       "intersect": "kernels/intersect.cl",
@@ -366,13 +278,7 @@
       "maxdepth": 1,
       "attempt": 1024,
 
-      "camera": {
-        "position": [ -0.107859, 0.327987, 0.631535 ],
-        "lookat": [ -0.0441226, 0.0903819, -0.337734 ],
-        "up": [ 0, 1, 0 ],
-        "fov": 45,
-        "resolution": [ 1280, 720 ]
-      },
+      "camera": { "position":[3.96984,21.2403,40.5447],"lookat": [3.87659,20.9829,39.5829],"up": [0,1,0],"fov": 45, "resolution":[1280,720] },
 
       "opencl": true
     },
@@ -975,7 +881,172 @@
           ]
         }
       ]
+    }, #10
+    {
+      "testall": true,
+      "directory": "../Scene2/",
+      "objname": [
+        {
+          "name": "bmw.obj",
+          "bvhs": [
+            "treeletGPU"
+          ],
+          "cameras": []
+        },
+        {
+          "name": "spaceship_new.obj",
+          "bvhs": [
+            "treeletGPU"
+          ],
+          "cameras": []
+        },
+        {
+          "name": "coffee_maker.obj",
+          "bvhs": [
+            "treeletGPU"
+          ],
+          "cameras": []
+        },
+        {
+          "name": "warriors.obj",
+          "bvhs": [
+            "treeletGPU"
+          ],
+          "cameras": []
+        },
+        {
+          "name": "dragon.obj",
+          "bvhs": [
+            "treeletGPU"
+          ],
+          "cameras": []
+        },
+        {
+          "name": "sponza.obj",
+          "bvhs": [
+            "treeletGPU"
+          ],
+          "cameras": []
+        },
+        {
+          "name": "sibenik.obj",
+          "bvhs": [
+            "treeletGPU"
+          ],
+          "cameras": []
+        },
+        {
+          "name": "budda.obj",
+          "bvhs": [
+            "treeletGPU"
+          ],
+          "cameras": []
+        },
+        {
+          "name": "conference.obj",
+          "bvhs": [
+            "treeletGPU"
+          ],
+          "cameras": []
+        },
+        {
+          "name": "dragon-simple.obj",
+          "bvhs": [
+            "treeletGPU"
+          ],
+          "cameras": []
+        },
+        {
+          "name" : "powerplant.obj",
+          "bvhs" : [
+            "treelet"
+          ],
+          "cameras" : []
+        },
+        {
+          "name": "san-miguel.obj",
+          "bvhs": [
+            "treeletGPU"
+          ],
+          "cameras": []
+        },
+        {
+          "name": "hairball.obj",
+          "bvhs": [
+            "treeletGPU"
+          ],
+          "cameras": []
+        },
+        {
+          "name": "erato-1.obj",
+          "bvhs": [
+            "treeletGPU"
+          ],
+          "cameras": []
+        },
+    
+    
+        {
+          "name": "f000.obj",
+          "bvhs": [
+            "treeletGPU"
+          ],
+          "cameras": []
+        },
+        {
+          "name": "gallery.obj",
+          "bvhs": [
+            "hlbvh",
+            "treeletGPU",
+            "quadhlbvh",
+            "quadtreelet"
+          ],
+          "cameras": []
+        },
+        {
+          "name": "living_room.obj",
+          "bvhs": [
+            "treeletGPU"
+          ],
+          "cameras": []
+        },
+        {
+          "name": "lost_empire.obj",
+          "bvhs": [
+            "treelet"
+          ],
+          "cameras": []
+        },
+        {
+          "name": "rungholt.obj",
+          "bvhs": [
+            "treeletGPU"
+          ],
+          "cameras": []
+        },
+        {
+          "name": "salle_de_bain.obj",
+          "bvhs": [
+            "treeletGPU"
+          ],
+          "cameras": []
+        },
+        {
+          "name": "sportsCar.obj",
+          "bvhs": [
+            "treeletGPU"
+          ],
+          "cameras": []
+        },
+        {
+          "name": "vokselia_spawn.obj",
+          "bvhs": [
+            "treelet"
+          ],
+          "cameras": []
+        }
+      ]
     }
   ],
-  "configid" : 13
+  "configid" : 9
 }

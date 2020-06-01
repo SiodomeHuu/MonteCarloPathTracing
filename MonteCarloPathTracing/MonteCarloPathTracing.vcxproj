@@ -155,6 +155,7 @@
     <ClInclude Include="oclbasic.h" />
     <ClInclude Include="OpenCLApp.h" />
     <ClInclude Include="openglapp.h" />
+    <ClInclude Include="quartzsceneparser.h" />
     <ClInclude Include="raygeneration.h" />
     <ClInclude Include="scenebuild.h" />
     <ClInclude Include="stb_image_write.h" />
@@ -174,6 +175,7 @@
     <ClCompile Include="oclbasic.cpp" />
     <ClCompile Include="OpenCLApp.cpp" />
     <ClCompile Include="openglapp.cpp" />
+    <ClCompile Include="quartzsceneparser.cpp" />
     <ClCompile Include="raygeneration.cpp" />
     <ClCompile Include="scenebuild.cpp" />
     <ClCompile Include="stb_image_write.cpp" />
