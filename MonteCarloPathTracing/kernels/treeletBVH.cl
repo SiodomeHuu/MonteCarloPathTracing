@@ -556,3 +556,13 @@ __kernel void reconstructTreelet(
 		}
 	}
 }
+
+
+__kernel void combineLeaf(
+	__global BVHNode* nodes,
+	__global float* sahValue,
+	__global volatile int* flags,
+	int numPrims
+) {
+
+}
