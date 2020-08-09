@@ -162,30 +162,30 @@ namespace {
 	}
 
 	void mouseCB(int x, int y) {
-		static const float step = 100.0;
-		static auto initer = [&]() {
+		if (Config::TESTBVH()) {
+			static const float step = 100.0;
+			static auto initer = [&]() {
+				glutWarpPointer(width / 2, height / 2);
+				return 0;
+			}();
+
+			int deltaX = x - width / 2;
+			int deltaY = -y + height / 2;
+
+			float radX = deltaX / step;
+			float radY = deltaY / step;
+
+			float4 newDirection = cos(radX) * camera.direction + sin(radX) * camera.horizontal;
+			float4 newHorizontal = normalize(cross(newDirection, camera.up));
+			newDirection = cos(radY) * newDirection + sin(radY) * camera.up;
+
+			camera.direction = normalize(newDirection);
+			camera.horizontal = newHorizontal;
+
+			needUpdate = true;
+
 			glutWarpPointer(width / 2, height / 2);
-			return 0;
-		}();
-
-		int deltaX = x - width / 2;
-		int deltaY = -y +  height / 2;
-
-		float radX = deltaX / step;
-		float radY = deltaY / step;
-
-		float4 newDirection = cos(radX) * camera.direction + sin(radX) * camera.horizontal;
-		float4 newHorizontal = normalize(cross(newDirection, camera.up));
-		newDirection = cos(radY) * newDirection + sin(radY) * camera.up;
-		//float4 newUp = normalize(cross(newHorizontal, newDirection));
-
-		camera.direction = normalize(newDirection);
-		//camera.up = newUp;
-		camera.horizontal = newHorizontal;
-
-		needUpdate = true;
-
-		glutWarpPointer(width / 2, height / 2);
+		}
 	}
 }
 

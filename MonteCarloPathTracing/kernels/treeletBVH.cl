@@ -88,7 +88,7 @@ int pickNode(
 		if(sp == 1 && lid == 0) {
 			maxNodeID = 0;
 			goto AFTERREDUCE;
-		}
+		} //##MARK
 
 		if(lid < sp) {
 			sahvbuffer[lid] = queueNode[lid].sahValue;
@@ -564,5 +564,27 @@ __kernel void combineLeaf(
 	__global volatile int* flags,
 	int numPrims
 ) {
+	size_t gid = get_global_id(0);
 
+	if(gid < numPrims) {
+		int idx = gid+numPrims-1;
+
+		//sahValue[idx] = (Ctri + Cleaf) * AREA(nodes[idx].bbmin, nodes[idx].bbmax) / rootArea;
+
+		do {
+			idx = nodes[idx].parent;
+			if(atomic_cmpxchg(flags+idx,0,1) != 1)  // another child not ready
+				return;
+
+			//if( sahValue[idx] > Ctri * AREA(nodes[idx].bbmin, nodes[idx].bbmax) * (##MARK) ) {
+			//	##colapse
+			//}
+
+			//int lc = nodes[idx].left;
+			//int rc = nodes[idx].right;
+
+			//sahValue[idx] = sahValue[lc] + sahValue[rc] + 
+			//	Cinn * (AREA(nodes[idx].bbmin,nodes[idx].bbmax) ) / rootArea;
+		} while(idx != 0);
+	}
 }

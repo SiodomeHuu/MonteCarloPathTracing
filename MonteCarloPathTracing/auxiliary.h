@@ -3,6 +3,7 @@
 #include "objdef.h"
 #include "json.hpp"
 
+
 using namespace nlohmann;
 
 namespace MCPT::Auxiliary {
@@ -15,7 +16,7 @@ namespace MCPT::Auxiliary {
 	float AREA(const BoundingBox& a);
 	float AREA(float4 bbmin, float4 bbmax);
 
-
-
+	
+	
 	Camera parseCamera(const json& jsonCamera);
 }

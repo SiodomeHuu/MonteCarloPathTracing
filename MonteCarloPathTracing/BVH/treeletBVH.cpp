@@ -20,14 +20,8 @@ constexpr int TOTAL_BIT = (1 << MAX_NODE) - 1; //0x0000007F;
 
 namespace {
 
-	std::vector<float> SAHValue;
-	float rootArea;
 
-
-
-
-
-	void reconstructTreelet(std::vector<BVHNode>& bvh, size_t rootID) {
+	void reconstructTreelet(std::vector<BVHNode>& bvh, size_t rootID, std::vector<float>& sahValue, float rootArea) {
 
 		struct QueueNode {
 			int id;
@@ -43,7 +37,7 @@ namespace {
 		std::vector< int > freeBVHNode; // used in reconstruction part
 
 		auto& node = bvh[rootID];
-		pq.push_back({ (int)rootID,SAHValue[rootID] });
+		pq.push_back({ (int)rootID,sahValue[rootID] });
 
 
 		while (pq.size() < MAX_NODE) {
@@ -66,9 +60,9 @@ namespace {
 				continue;
 			} // if leaf and max, put to back
 			else {
-				pq.push_back({ lid,SAHValue[lid] });
+				pq.push_back({ lid,sahValue[lid] });
 				std::push_heap(pq.begin(), pq.end());
-				pq.push_back({ rid,SAHValue[rid] });
+				pq.push_back({ rid,sahValue[rid] });
 				std::push_heap(pq.begin(), pq.end());
 
 				freeBVHNode.push_back(maxNodeID);
@@ -123,7 +117,7 @@ namespace {
 		std::vector< float > cost;
 		cost.resize(1 << NOW_NODE);
 		for (int i = 0; i < NOW_NODE; ++i) {
-			cost[(1 << i)] = SAHValue[ pq[i].id ];
+			cost[(1 << i)] = sahValue[ pq[i].id ];
 		} // initialize costs of individual leaves
 
 
@@ -289,8 +283,8 @@ namespace {
 				node.bbmax = max(bvh[node.left].bbmax, bvh[node.right].bbmax);
 				node.bbmin = min(bvh[node.left].bbmin, bvh[node.right].bbmin);
 
-				SAHValue[ freeBVHNode[i] ] = SAHValue[node.left] + SAHValue[node.right] +
-					Cinn * (AREA(bvh[freeBVHNode[i]].bbmin, bvh[freeBVHNode[i]].bbmax)) / rootArea;
+				sahValue[freeBVHNode[i]] = sahValue[node.left] + sahValue[node.right] +
+					Cinn * (AREA(bvh[freeBVHNode[i]].bbmin, bvh[freeBVHNode[i]].bbmax));
 			}
 		}
 
@@ -298,19 +292,19 @@ namespace {
 
 
 
-	void recurseGet(const std::vector<BVHNode>& bvh, int rootID, float rootArea) {
-		if (SAHValue[rootID] == -1.0f) {
-			if (rootID > (bvh.size() >> 1)) {
-				SAHValue[rootID] = (Ctri + Cleaf) * AREA(bvh[rootID].bbmin, bvh[rootID].bbmax) / rootArea;
+	void recurseGet(const std::vector<BVHNode>& bvh, int rootID, float rootArea, std::vector<float>& sahValue) {
+		if (sahValue[rootID] == -1.0f) {
+			if (rootID >= (bvh.size() >> 1)) {
+				sahValue[rootID] = (Ctri + Cleaf) * AREA(bvh[rootID].bbmin, bvh[rootID].bbmax);
 				return;
 			}
 			else {
 				auto left = bvh[rootID].left;
 				auto right = bvh[rootID].right;
-				recurseGet(bvh, left, rootArea);
-				recurseGet(bvh, right, rootArea);
-				SAHValue[rootID] = SAHValue[left] + SAHValue[right] + 
-					Cinn * (AREA(bvh[rootID].bbmin,bvh[rootID].bbmax) ) / rootArea;
+				recurseGet(bvh, left, rootArea, sahValue);
+				recurseGet(bvh, right, rootArea, sahValue);
+				sahValue[rootID] = sahValue[left] + sahValue[right] +
+					Cinn * (AREA(bvh[rootID].bbmin, bvh[rootID].bbmax));
 			}
 		}
 		else {
@@ -318,65 +312,275 @@ namespace {
 		}
 	}
 
-	void getInformation(const std::vector<BVHNode>& bvh) {
-		SAHValue.resize(bvh.size(), -1.0f);
+	void getInformation(const std::vector<BVHNode>& bvh, std::vector<float>& sahValue) {
+		sahValue.resize(bvh.size(), -1.0f);
 		float rootArea = AREA(bvh[0].bbmin, bvh[0].bbmax);
-		recurseGet(bvh, 0, rootArea);
+		recurseGet(bvh, 0, rootArea, sahValue);
 	}
 
 	
+	/*void collapseLeaf(const std::vector<BVHNode>& bvh, std::vector<int>& ranges) {
+		int objCount = (bvh.size() >> 1) + 1;
+		std::vector<int> flags;
+		flags.resize(objCount, 0);
+
+		for (int i = objCount - 1; i < bvh.size(); ++i) {
+			int idx = bvh[i].parent;
+
+			if (!flags[idx]) {
+
+			}
+		}
+	}*/
 }
 
 
 
-TreeletBVH<CPU>::TreeletBVH(const std::vector<BVHNode>& bvh)
-	: bvhnode(bvh)
-{
-	SAHValue.clear();
-	getInformation(bvhnode);
-	::rootArea = AREA(bvh[0].bbmin, bvh[0].bbmax);
 
-	/*std::unordered_set<int> flag;
-	std::unordered_set<int> toReconstruct;
-	std::unordered_set<int> temp;*/
+struct TreeletBVH<CPU>::Impl {
+	std::vector<float> sahValue;
+	float rootArea;
+	~Impl() {}
+};
+
+TreeletBVH<CPU>::TreeletBVH(std::unique_ptr<CPUBVH> pBVH) {
+	primitiveCount = static_cast<BVH*>(pBVH.get())->primitiveCount;
+	TreeletBVH<CPU>(pBVH->releaseBVH());
+}
+
+
+
+
+TreeletBVH<CPU>::TreeletBVH(std::vector<BVHNode> bvh) {
+	if (primitiveCount == 0) {
+		primitiveCount = (bvh.size() >> 1) + 1;
+	}
+
+	bvhnode = std::move(bvh);
+
+	pImpl = std::make_unique<Impl>();
+	pImpl->sahValue.clear();
+	
+
+	getInformation(bvhnode, pImpl->sahValue);
+	pImpl->rootArea = AREA(bvhnode[0].bbmin, bvhnode[0].bbmax);
 
 	std::vector<int> flag;
 
-	flag.resize(bvh.size() >> 1);
+	flag.resize(primitiveCount - 1);
 
-	for (int i = (bvh.size() >> 1); i < bvh.size(); ++i) {
+	for (int i = primitiveCount - 1; i < bvhnode.size(); ++i) {
 
 		//reconstructTreelet(bvhnode, i);
 		// Maybe some splits can take here
 
-		auto nowParent = bvh[i].parent;
+		auto nowParent = bvhnode[i].parent;
 		while (nowParent != -1) {
 			if (!flag[nowParent]) { // another child not ready
 				flag[nowParent] = 1;
 				break;
 			}
 			else {
-				reconstructTreelet(bvhnode, nowParent);
-				nowParent = bvh[nowParent].parent;
+				reconstructTreelet(bvhnode, nowParent, pImpl->sahValue, pImpl->rootArea);
+				nowParent = bvhnode[nowParent].parent;
 			}
 		}
 	}
-
 }
 
-TreeletBVH<CPU>::TreeletBVH(std::vector<BVHNode>&& bvh)
-	: TreeletBVH<CPU>(bvh)
-{}
 
 const std::vector<BVHNode>& MCPT::BVH::TreeletBVH<CPU>::getBVH() {
 	return bvhnode;
 }
 
 
-std::vector<BVHNode>&& MCPT::BVH::TreeletBVH<CPU>::releaseBVH()
-{
+std::vector<BVHNode>&& MCPT::BVH::TreeletBVH<CPU>::releaseBVH() {
 	return std::move(bvhnode);
 }
+
+
+///////////////// below : in processing
+
+TreeletBVH_<CPU>::TreeletBVH_(const std::vector<BVHNode>& bvh) {
+	auto tBVH = bvh;
+	TreeletBVH_<CPU>(std::move(tBVH));
+}
+
+
+TreeletBVH_<CPU>::TreeletBVH_(std::vector<BVHNode>&& bvh) {
+	
+	TreeletBVH<CPU> tempTreeletBVH{ std::move(bvh) };
+	primitiveCount = tempTreeletBVH.primitiveCount;
+
+
+	auto sahValue = std::move(tempTreeletBVH.pImpl->sahValue);
+	auto rootArea = tempTreeletBVH.pImpl->rootArea;
+	auto tempTree = tempTreeletBVH.releaseBVH();
+	// fully decompose the information for older treelet bvh tree
+	
+	indices.reserve(primitiveCount);
+
+	// flag stores the count of primitives
+	std::vector<int> flag;
+	flag.resize(primitiveCount << 1 , 0);
+
+	// get the count of primitives for all inner nodes
+	for (int i = primitiveCount - 1; i < tempTree.size(); ++i) {
+		flag[i] = -1;
+
+		auto now = i;
+		auto nowParent = tempTree[i].parent;
+
+		while (nowParent != -1) { // another child ready
+			if (!flag[nowParent]) {
+				flag[nowParent] = flag[now];
+				break;
+			}
+			flag[nowParent] += flag[now];
+			now = nowParent;
+			nowParent = tempTree[nowParent].parent;
+		}
+	}
+
+
+	std::unordered_set<int> collapseIDs;
+	/*for (int i = primitiveCount - 1; i < tempTree.size(); ++i) {
+		auto nowParent = tempTree[i].parent;
+
+		int toCollapse = -1;
+
+		while (nowParent != -1) {
+			if (flag[nowParent] < 0) {
+				flag[nowParent] = -flag[nowParent];
+			}
+			else {
+				auto collapseCost = Ctri * flag[nowParent] * AREA(tempTree[nowParent].bbmin, tempTree[nowParent].bbmax);
+				if (collapseCost <= sahValue[nowParent]) {
+					toCollapse = nowParent;
+					sahValue[nowParent] = collapseCost;
+				}
+				nowParent = tempTree[nowParent].parent;
+			}
+		}
+		if (toCollapse >= 0) {
+			collapseIDs.insert(toCollapse);
+		}
+	}*/
+
+
+
+	// top-down check all nodes that need to take a collapse
+	struct StackNode {
+		unsigned int self;
+		unsigned int parent;
+		bool isLeft;
+	};
+	std::deque<StackNode> stack;
+	stack.push_back({ 0, 0, true });
+
+	while (!stack.empty()) {
+		auto backNode = stack.back();
+		auto back = backNode.self;
+		stack.pop_back();
+
+		auto left = tempTree[back].left;
+		auto right = tempTree[back].right;
+		auto backArea = AREA(tempTree[back].bbmin, tempTree[back].bbmax);
+
+		if (flag[back] == -1) {
+			//MARK
+			auto selfID = bvhNode.size();
+
+			auto singlePrimitiveID = left;
+			auto l = indices.size();
+			indices.push_back(singlePrimitiveID);
+
+			MultiPrimBVHNode tempnode;
+			tempnode.bbmin = tempTree[back].bbmin;
+			tempnode.bbmax = tempTree[back].bbmax;
+			tempnode.parent = backNode.parent;
+
+			tempnode.left = l;
+			tempnode.right = l + 1;
+			tempnode.isLeaf = 1;
+
+			bvhNode.push_back(tempnode);
+			if (backNode.isLeft)
+				bvhNode[backNode.parent].left = selfID;
+			else
+				bvhNode[backNode.parent].right = selfID;
+		}
+		else if (collapseIDs.find(back) != collapseIDs.end()) {
+			// collapse
+			auto getPrimitiveIDs = [](const std::vector<BVHNode>& tree, unsigned int root) {
+				std::vector<unsigned int> ans;
+				std::deque<unsigned int> stack;
+				stack.push_back(root);
+				while (!stack.empty()) {
+					auto back = stack.back();
+					stack.pop_back();
+				AGAIN:
+					auto left = tree[back].left;
+					auto right = tree[back].right;
+					if (left == right) {
+						ans.push_back(left);
+						continue;
+					}
+					stack.push_back(right);
+					back = left;
+					goto AGAIN;
+				}
+				return ans;
+			};
+
+			auto primitiveIDs = getPrimitiveIDs(tempTree, back);
+			//if (primitiveIDs.size() > 4) goto NOCOLLAPSE;
+			auto l = indices.size();
+			auto r = l + primitiveIDs.size();
+			for (auto id : primitiveIDs) {
+				indices.push_back(id);
+			}
+
+			auto selfID = bvhNode.size();
+			MultiPrimBVHNode tempnode;
+			tempnode.bbmin = tempTree[back].bbmin;
+			tempnode.bbmax = tempTree[back].bbmax;
+			tempnode.parent = backNode.parent;
+			tempnode.left = l;
+			tempnode.right = r;
+			tempnode.isLeaf = 1;
+			
+			bvhNode.push_back(tempnode);
+			if (backNode.isLeft)
+				bvhNode[backNode.parent].left = selfID;
+			else
+				bvhNode[backNode.parent].right = selfID;
+		}
+		else {
+		NOCOLLAPSE:
+			auto selfID = bvhNode.size();
+			MultiPrimBVHNode tempnode;
+			tempnode.bbmin = tempTree[back].bbmin;
+			tempnode.bbmax = tempTree[back].bbmax;
+			tempnode.parent = backNode.parent;
+			tempnode.isLeaf = 0;
+
+			bvhNode.push_back(tempnode);
+			if (backNode.isLeft)
+				bvhNode[backNode.parent].left = selfID;
+			else
+				bvhNode[backNode.parent].right = selfID;
+			stack.push_back({ (uint)left,(uint)selfID,true });
+			stack.push_back({ (uint)right,(uint)selfID,false });
+		}
+	}
+	bvhNode[0].parent = -1;
+}
+
+
+
+
+
 
 
 /*

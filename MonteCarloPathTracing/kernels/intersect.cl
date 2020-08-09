@@ -56,6 +56,11 @@ __kernel void intersectRays(
 #else
 	__global QuadBVHNode* bvhnodes,
 #endif
+
+#ifdef MCPT_MULTI
+	__global uint* indices,
+#endif
+
 	__global Triangle* triangles,
 	__global Hit* hits,
 	float tmin
@@ -72,11 +77,17 @@ __kernel void intersectRays(
 	}
 
 	bool isIntersect = false;
+#ifndef MCPT_MULTI
 #ifndef MCPT_USE_QUADBVH
 	isIntersect = intersectObjects(bvhnodes, triangles, &myRay, &hit, tmin);
 #else
 	isIntersect = intersectObjectsQuad(bvhnodes, triangles, &myRay, &hit, tmin);
 #endif
+
+#else
+	isIntersect = intersectObjectsMulti(bvhnodes, indices, triangles, &myRay, &hit, tmin);
+#endif
+
 	if (isIntersect && dot(myRay.direction.s012, hit.normal.s012) > 0) {
 		hit.normal = -hit.normal;
 	}

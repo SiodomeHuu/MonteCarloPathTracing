@@ -45,6 +45,11 @@ namespace MCPT::ThirdPartyWrapper {
 		};
 		auto packTriangle = [&](const tinyobj::shape_t& x) -> void {
 			for (size_t i = 0; i < x.mesh.num_face_vertices.size(); ++i) {
+				//int lowRange = x.mesh.num_face_vertices.size() / 8 * 7;
+				//int highRange = lowRange + x.mesh.num_face_vertices.size() / 8;
+				//if (i<lowRange || i > highRange) continue;
+				//if (i % 15 != 1) continue;
+
 				size_t offset = i * 3;
 
 				size_t tid[3];
@@ -57,9 +62,9 @@ namespace MCPT::ThirdPartyWrapper {
 			}
 		};
 
-
 		for (auto& shape : shapes) {
 			packTriangle(shape);
+			//break;
 		}
 		
 		for (const auto& mat : materials) {

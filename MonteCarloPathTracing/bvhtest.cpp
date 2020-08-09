@@ -12,6 +12,9 @@
 #include "BVH/hlbvh.h"
 #include "BVH/treeletBVH.h"
 #include "BVH/simpleQuad.h"
+#include "BVH/sahbvh.h"
+
+#include "treeletTemp.h"
 
 #include <iostream>
 
@@ -92,9 +95,11 @@ namespace {
 	cl::Program prog;
 	cl::Kernel kernel;
 	cl::Kernel quadKernel;
+	cl::Kernel multi_kernel;
 
 	cl::Kernel lcvKernel;
 	cl::Kernel quadLCVKernel;
+	cl::Kernel lcvKernel_Multi;
 	bool programInited = false;
 
 	cl::Program rayGenProg;
@@ -474,7 +479,7 @@ namespace MCPT::BVH::TEST {
 	
 
 
-	double LCV(cl::Buffer nodes, json camera) {
+	double LCV(cl::Buffer nodes, cl::Buffer triangles, json camera) {
 		static auto initer = [&]() {
 			if (!programInited) {
 				prog = OpenCLBasic::createProgramFromFileWithHeader("./kernels/EPO.cl", "objdef.h");
@@ -500,11 +505,30 @@ namespace MCPT::BVH::TEST {
 		OpenCLBasic::setKernelArg(rayGenerator, cmrB, rayB);
 		OpenCLBasic::enqueueNDRange(rayGenerator, { (size_t)width,(size_t)height }, cl::NullRange);
 
+		//
 		auto countB = OpenCLBasic::newBuffer<int>(width * height);
-		OpenCLBasic::setKernelArg(lcvKernel, rayB, nodes, countB);
+		auto innerCountB = OpenCLBasic::newBuffer<int>(width * height);
+		auto primCountB = OpenCLBasic::newBuffer<int>(width * height);
+
+		OpenCLBasic::setKernelArg(lcvKernel, rayB, nodes, triangles, countB, innerCountB, primCountB);
 		OpenCLBasic::enqueueNDRange(lcvKernel, width * height, cl::NullRange);
 
 		auto finalC = OpenCLBasic::readBuffer<int>(countB);
+
+		auto innerCounts = OpenCLBasic::readBuffer<int>(innerCountB);
+		auto primCounts = OpenCLBasic::readBuffer<int>(primCountB);
+
+		double averageInner = 0, averagePrim = 0;
+		for (auto& i : innerCounts) {
+			averageInner += i;
+		}
+		averageInner /= (width * height);
+		std::cout << "******** Average Inner: " << averageInner << std::endl;
+		for (auto& i : primCounts) {
+			averagePrim += i;
+		}
+		averagePrim /= (width * height);
+		std::cout << "******** Average Prim: " << averagePrim << std::endl;
 
 		double e = 0.0, e2 = 0.0;
 		for (auto& f : finalC) {
@@ -513,8 +537,74 @@ namespace MCPT::BVH::TEST {
 		}
 		e /= (width * height);
 		e2 /= (width * height);
+
+		std::cout << "******** Average Leaf Node: " << e << std::endl;
 		return sqrt(e2 - e * e);
 	}
+
+	double LCV_Multi(cl::Buffer nodes, cl::Buffer indices, cl::Buffer triangles, json camera) {
+		static auto initer = [&]() {
+			if (!programInited) {
+				prog = OpenCLBasic::createProgramFromFileWithHeader("./kernels/EPO.cl", "objdef.h");
+				programInited = true;
+			}
+			lcvKernel_Multi = OpenCLBasic::createKernel(prog, "LCV_Multi");
+
+			if (!rayGenInited) {
+				rayGenProg = OpenCLBasic::createProgramFromFileWithHeader("./kernels/rayGenerator.cl", "objdef.h");
+				rayGenerator = OpenCLBasic::createKernel(rayGenProg, "generateRay");
+				rayGenInited = true;
+			}
+			return 0;
+		}();
+		int width = camera["resolution"][0];
+		int height = camera["resolution"][1];
+		Camera cmr = parseCamera(camera);
+
+		auto cmrB = OpenCLBasic::newBuffer<Camera>(1, (void*)(&cmr));
+		auto rayB = OpenCLBasic::newBuffer<Ray>(width * height);
+		OpenCLBasic::setKernelArg(rayGenerator, cmrB, rayB);
+		OpenCLBasic::enqueueNDRange(rayGenerator, { (size_t)width,(size_t)height }, cl::NullRange);
+
+
+		////
+		auto countB = OpenCLBasic::newBuffer<int>(width * height);
+
+		auto innerCountB = OpenCLBasic::newBuffer<int>(width * height);
+		auto primCountB = OpenCLBasic::newBuffer<int>(width * height);
+
+		OpenCLBasic::setKernelArg(lcvKernel_Multi, rayB, nodes, indices, triangles, countB, innerCountB, primCountB);
+		OpenCLBasic::enqueueNDRange(lcvKernel_Multi, width * height, cl::NullRange);
+
+		auto finalC = OpenCLBasic::readBuffer<int>(countB);
+		auto innerCounts = OpenCLBasic::readBuffer<int>(innerCountB);
+		auto primCounts = OpenCLBasic::readBuffer<int>(primCountB);
+
+		double averageInner = 0, averagePrim = 0;
+		for (auto& i : innerCounts) {
+			averageInner += i;
+		}
+		averageInner /= (width * height);
+		std::cout << std::endl << "******** Average Inner: " << averageInner << std::endl;
+		for (auto& i : primCounts) {
+			averagePrim += i;
+		}
+		averagePrim /= (width * height);
+		std::cout << "******** Average Prim: " << averagePrim << std::endl;
+
+		double e = 0.0, e2 = 0.0;
+		for (auto& f : finalC) {
+			e += f;
+			e2 += f * f;
+		}
+		e /= (width * height);
+		e2 /= (width * height);
+
+		std::cout << "******** Average Leaf Node: " << e << std::endl;
+		return sqrt(e2 - e * e);
+	}
+
+
 
 	double QuadLCV(cl::Buffer nodes, json camera) {
 		static auto initer = [&]() {
@@ -734,6 +824,41 @@ namespace MCPT::BVH::TEST {
 		return sahAns;
 	}
 
+	double SAH_Multi(const std::vector<MultiPrimBVHNode>& node) {
+		double sahAns = 0.0f;
+		/*for (auto i = 0; i < node.size(); ++i) {
+			if (node[i].isLeaf) {
+				sahAns += Ctri * AREA(node[i].bbmin, node[i].bbmax) * (node[i].right - node[i].left);
+			}
+			else {
+				sahAns += Cinn * AREA(node[i].bbmin, node[i].bbmax);
+			}
+		}*/
+		std::function<double(int)> sahFunc;
+		sahFunc = [&](int id) -> double {
+			if (node[id].isLeaf) {
+				auto ans = Ctri * AREA(node[id].bbmin, node[id].bbmax) * (node[id].right - node[id].left);
+				if (isinf(ans)) {
+					std::cout << "INF in " << id << " ";
+					for (int i = 0; i < 3; ++i)
+						std::cout << node[id].bbmin.s[i] << " ";
+					for (int i = 0; i < 3; ++i)
+						std::cout << node[id].bbmax.s[i] << " ";
+					std::cout << std::endl;
+				}
+				return Ctri * AREA(node[id].bbmin, node[id].bbmax) * (node[id].right - node[id].left);
+			}
+			else {
+				auto l = sahFunc(node[id].left);
+				auto r = sahFunc(node[id].right);
+				return l + r + Cinn * AREA(node[id].bbmin, node[id].bbmax);
+			}
+		};
+		sahAns = sahFunc(0);
+		std::cout << "----" << sahAns << " " << AREA(node[0].bbmin, node[0].bbmax) << std::endl;
+		sahAns /= AREA(node[0].bbmin, node[0].bbmax);
+		return sahAns;
+	}
 
 	double EPO(cl::Buffer bvh, cl::Buffer triangles) {
 		static auto initer = []() {
@@ -808,7 +933,44 @@ namespace MCPT::BVH::TEST {
 		return count;
 	}
 
+	double EPO_Multi(const std::vector<MultiPrimBVHNode>& node, const std::vector<unsigned int>& indices, cl::Buffer triangles) {
+		static auto initer = []() {
+			if (!programInited) {
+				prog = OpenCLBasic::createProgramFromFileWithHeader("./kernels/EPO.cl", "objdef.h");
+				programInited = true;
+			}
+			multi_kernel = OpenCLBasic::createKernel(prog, "calculateEPO_Multi");
+			return 0;
+		}();
 
+		std::vector<unsigned int> leaves;
+		for (int i = 0; i < node.size(); ++i) {
+			if (node[i].isLeaf) leaves.push_back(i);
+		}
+		auto leafCount = leaves.size();
+
+		auto bvhB = OpenCLBasic::newBuffer< MultiPrimBVHNode >(node.size(), (void*)node.data());
+		auto indexB = OpenCLBasic::newBuffer< uint>(indices.size(), (void*)indices.data());
+		auto leafB = OpenCLBasic::newBuffer<uint>(leaves.size(), (void*)leaves.data());
+		auto ansB = OpenCLBasic::newBuffer<float>(leafCount);
+		auto areaB = OpenCLBasic::newBuffer<float>(leafCount);
+		OpenCLBasic::setKernelArg(multi_kernel, bvhB, indexB, leafB, triangles, ansB, areaB);
+		OpenCLBasic::enqueueNDRange(multi_kernel, leafCount, cl::NullRange);
+
+		std::vector<float> epoAns = OpenCLBasic::readBuffer<float>(ansB);
+		std::vector<float> areaAns = OpenCLBasic::readBuffer<float>(areaB);
+
+		double count = 0.0;
+		for (int i = 0; i < epoAns.size(); ++i) {
+			count += epoAns[i];
+		}
+		double area = 0.0;
+		for (int i = 0; i < areaAns.size(); ++i) {
+			area += areaAns[i];
+		}
+		count /= area;
+		return count;
+	}
 
 
 	void singleTest(cl::Buffer bvh, cl::Buffer triangles) {
@@ -819,57 +981,33 @@ namespace MCPT::BVH::TEST {
 			std::cout << "SAH: " << SAH(node, tri.size()) << std::endl;
 			std::cout << "EPO: " << QuadEPO(bvh, triangles) << std::endl;
 
-			/*if (!config["camera"].empty) {
+			if (!config["camera"].empty) {
 				std::cout << "LCV: " << QuadLCV(bvh, config["camera"].obj);
-			}*/
+			}
 		}
 		else {
 			std::cout << "SAH: " << SAH(bvh) << std::endl;
 			std::cout << "EPO: " << EPO(bvh, triangles) << std::endl;
 
-			/*if (!config["camera"].empty) {
-				std::cout << "LCV: " << LCV(bvh, config["camera"].obj);
-			}*/
+			if (!config["camera"].empty) {
+				std::cout << "LCV: " << LCV(bvh, triangles, config["camera"].obj);
+			}
+		}
+	}
+	void singleTest(const std::vector<MultiPrimBVHNode>& node, const std::vector<unsigned int>& indices, cl::Buffer triangles) {
+		auto config = Config::getConfig();
+
+		std::cout << "SAH(M): " << SAH_Multi(node) << std::endl;
+		std::cout << "EPO(M): " << EPO_Multi(node,indices,triangles) << std::endl;
+
+		auto bvhB = OpenCLBasic::newBuffer<MultiPrimBVHNode>(node.size(), (void*)node.data());
+		auto indexB = OpenCLBasic::newBuffer<uint>(indices.size(), (void*)indices.data());
+
+		if (!config["camera"].empty) {
+			std::cout << "LCV(M): " << LCV_Multi(bvhB, indexB, triangles, config["camera"].obj);
 		}
 	}
 
-	
-	/*void testall() {
-		OpenCLBasic::init();
-
-		auto dir = Config::GETDIRECTORY();
-		auto objs = Config::GETOBJS();
-
-		json cmr;
-
-		std::vector<std::string> models;
-		for (int i = 0; i < objs.size(); ++i) {
-			models.push_back(objs[i].get<std::string>());
-		}
-
-		std::vector<std::string> models1 = {
-			"bmw.obj",
-			"spaceship_new.obj",
-			"coffee_maker.obj",
-			"warriors.obj",
-			"dragon.obj", //4
-			"sponza.obj",
-			//no miguel
-			"sibenik.obj",
-			"budda.obj" }; //7
-
-		std::vector<std::string> models2 = {
-			"conference.obj",
-			"dragon-simple.obj",
-			"powerplant.obj",
-			"san-miguel.obj"
-		};
-
-		for (const auto& model : models) {
-			testmodel(model, cmr);
-			std::cout << std::endl;
-		}
-	}*/
 
 
 	void testall() {
@@ -880,12 +1018,19 @@ namespace MCPT::BVH::TEST {
 		for (const auto& obj : objs) {
 			auto objStr = obj["name"].get<std::string>();
 			auto triangles = loadObj(dir, objStr);
+
+			for (auto& tr : triangles) {
+				tr.normal = normalize(cross(tr.v[1] - tr.v[0], tr.v[2] - tr.v[0]));
+			}
+
+
 			std::cout << "Object Name: " << objStr << " " << triangles.size() << std::endl;
 			
 			auto bvhsToTest = obj["bvhs"];
 			auto cameras = obj["cameras"];
 			
 			std::unique_ptr< HLBVH<CPU> > hlbvh;
+			std::unique_ptr< SAHBVH<CPU> > sahbvh;
 			std::unique_ptr< TreeletBVH<CPU> > treelet;
 			std::unique_ptr< TreeletBVH<GPU> > treeletGPU;
 			std::unique_ptr< SimpleBVHQuad<CPU> > quad_hlbvh;
@@ -902,14 +1047,104 @@ namespace MCPT::BVH::TEST {
 					cl::Buffer bvhBuffer = OpenCLBasic::newBuffer<BVHNode>(node.size(), (void*)node.data());
 					cl::Buffer triBuffer = OpenCLBasic::newBuffer<Triangle>(triangles.size(), (void*)triangles.data());
 
-					std::cout << "SAH: " << SAH(node) << std::endl;
-					std::cout << "EPO: " << EPO(bvhBuffer, triBuffer) << std::endl;
+					//std::cout << "SAH: " << SAH(node) << std::endl;
+					//std::cout << "EPO: " << EPO(bvhBuffer, triBuffer) << std::endl;
 					
 					std::vector<double> lcvs;
 					for (const auto& camera : cameras) {
-						auto lcv = LCV(bvhBuffer, camera);
+						auto lcv = LCV(bvhBuffer, triBuffer, camera);
 						lcvs.push_back(lcv);
 						std::cout << "Camera1: " << lcv << std::endl;
+					}
+					if (!lcvs.empty()) {
+						double sum = 0.0;
+						for (auto i : lcvs) sum += i;
+						std::cout << "LCV: " << sum / lcvs.size() << std::endl;
+					}
+				}
+				/*else if (bvhStr == "sah") {
+					sahbvh = std::make_unique< SAHBVH<CPU> >(triangles);
+					auto& node = sahbvh->getBVH();
+
+					cl::Buffer bvhBuffer = OpenCLBasic::newBuffer<BVHNode>(node.size(), (void*)node.data());
+					cl::Buffer triBuffer = OpenCLBasic::newBuffer<Triangle>(triangles.size(), (void*)triangles.data());
+
+					std::cout << "SAH: " << SAH(node) << std::endl;
+					std::cout << "EPO: " << EPO(bvhBuffer, triBuffer) << std::endl;
+
+					std::vector<double> lcvs;
+					int i = 0;
+					for (const auto& camera : cameras) {
+						auto lcv = LCV(bvhBuffer, camera);
+						lcvs.push_back(lcv);
+						std::cout << "Camera" << i << " " << lcv << std::endl;
+						++i;
+					}
+					if (!lcvs.empty()) {
+						double sum = 0.0;
+						for (auto i : lcvs) sum += i;
+						std::cout << "LCV: " << sum / lcvs.size() << std::endl;
+					}
+				}*/
+				else if (bvhStr.substr(0, 3) == "sah") {
+					const auto boxes = [&]() {
+						std::vector< BBox > ans;
+						ans.resize(triangles.size());
+						for (int i = 0; i < triangles.size(); ++i) {
+							ans[i].unionBBoxCentroid(triangles[i].v[0]);
+							ans[i].unionBBoxCentroid(triangles[i].v[1]);
+							ans[i].unionBBoxCentroid(triangles[i].v[2]);
+						}
+						return ans;
+					}();
+					const auto indices = [&]() {
+						std::vector< uint32_t > ans;
+						ans.resize(triangles.size());
+						for (int i = 0; i < triangles.size(); ++i) {
+							ans[i] = i;
+						}
+						return ans;
+					}();
+
+					std::tuple<bool, uint32_t, int> arg;
+					switch (bvhStr[3]) {
+					case '1': { // 1axis binning
+						arg = { false, 16 ,0 };
+						break;
+					}
+					case '2': { // 1axis full
+						arg = { false, 0, 0 };
+						break;
+					}
+					case '3': { // 3axis binning
+						arg = { true, 16, 0 };
+						break;
+					}
+					case '4': { // 3axis full
+						arg = { true, 0, 0 };
+						break;
+					}
+					default:
+						throw "Not Implemented";
+					}
+					SAHBVH<CPU> sahbvh{ boxes,indices,arg };
+					auto& node = sahbvh.getBVH();
+					auto& sortedIndices = sahbvh.getIndices();
+
+					cl::Buffer bvhBuffer = OpenCLBasic::newBuffer<BVHNode>(node.size(), (void*)node.data());
+					cl::Buffer triBuffer = OpenCLBasic::newBuffer<Triangle>(triangles.size(), (void*)triangles.data());
+					cl::Buffer indicesBuffer = OpenCLBasic::newBuffer<uint>(sortedIndices.size(), (void*)sortedIndices.data());
+
+					std::cout << "SAH: " << SAH_Multi(node) << std::endl;
+					std::cout << "EPO: " << EPO_Multi(node, sortedIndices, triBuffer) << std::endl;
+
+					std::vector<double> lcvs;
+					int c = 0;
+					for (const auto& camera : cameras) {
+						auto lcv = LCV_Multi(bvhBuffer, indicesBuffer, triBuffer, camera);
+						lcvs.push_back(lcv);
+						std::cout << "Camera " << c << ": " << lcv << std::endl;
+						++c;
 					}
 					if (!lcvs.empty()) {
 						double sum = 0.0;
@@ -934,9 +1169,86 @@ namespace MCPT::BVH::TEST {
 
 					std::vector<double> lcvs;
 					for (const auto& camera : cameras) {
-						auto lcv = LCV(bvhBuffer, camera);
+						auto lcv = LCV(bvhBuffer, triBuffer, camera);
 						lcvs.push_back(lcv);
 						std::cout << "Camera1: " << lcv << std::endl;
+					}
+					if (!lcvs.empty()) {
+						double sum = 0.0;
+						for (auto i : lcvs) sum += i;
+						std::cout << "LCV: " << sum / lcvs.size() << std::endl;
+					}
+				}
+				else if (bvhStr == "treelet2") {
+					std::unique_ptr< TreeletBVH_<CPU> > treelet2;
+					if (hlbvh == nullptr) {
+						hlbvh = std::make_unique< HLBVH<CPU> >(triangles);
+					}
+					{
+						auto nodes = hlbvh->getBVH();
+						treelet2 = std::make_unique< TreeletBVH_<CPU> >(std::move(nodes));
+					}
+					auto node = treelet2->getBVH();
+					
+					cl::Buffer bvhBuffer = OpenCLBasic::newBuffer<BVHNode>(node.size(), (void*)node.data());
+					cl::Buffer triBuffer = OpenCLBasic::newBuffer<Triangle>(triangles.size(), (void*)triangles.data());
+					cl::Buffer indicesBuffer = OpenCLBasic::newBuffer<uint>(treelet2->getIndices().size(), (void*)treelet2->getIndices().data());
+
+					std::cout << "SAH: " << SAH_Multi(node) << std::endl;
+					std::cout << "EPO: " << EPO_Multi(node, treelet2->getIndices(), triBuffer) << std::endl;
+
+					std::vector<double> lcvs;
+					int c = 0;
+					for (const auto& camera : cameras) {
+						auto lcv = LCV_Multi(bvhBuffer, indicesBuffer, triBuffer, camera);
+						lcvs.push_back(lcv);
+						std::cout << "Camera " << c << ": " << lcv << std::endl;
+						++c;
+					}
+					if (!lcvs.empty()) {
+						double sum = 0.0;
+						for (auto i : lcvs) sum += i;
+						std::cout << "LCV: " << sum / lcvs.size() << std::endl;
+					}
+				}
+				else if (bvhStr == "treeletTemp") {
+					std::unique_ptr< TreeletTemp > treeletTemp;
+					if (hlbvh == nullptr) {
+						hlbvh = std::make_unique< HLBVH<CPU> >(triangles);
+					}
+					{
+						Indices indices;
+						for (int i = 0; i < triangles.size(); ++i) {
+							indices.push_back(i);
+						}
+						auto& nodes = hlbvh->getBVH();
+						treeletTemp = std::make_unique< TreeletTemp >(nodes, indices, 1);
+					}
+					auto node = treeletTemp->getBVH();
+					auto leafIDs = treeletTemp->getLeafIDs();
+					double primAverage = 0;
+					for (const auto& lid : leafIDs) {
+						primAverage += node[lid].right - node[lid].left;
+					}
+					primAverage /= leafIDs.size();
+					
+
+					cl::Buffer bvhBuffer = OpenCLBasic::newBuffer<BVHNode>(node.size(), (void*)node.data());
+					cl::Buffer triBuffer = OpenCLBasic::newBuffer<Triangle>(triangles.size(), (void*)triangles.data());
+					cl::Buffer indicesBuffer = OpenCLBasic::newBuffer<uint>(treeletTemp->getIndices().size(), (void*)treeletTemp->getIndices().data());
+
+					//std::cout << "SAH: " << treeletTemp->sah() << " " << SAH_Multi(treeletTemp->getBVH()) << std::endl;
+					//std::cout << "EPO: " << EPO_Multi(node, treeletTemp->getIndices(), triBuffer) << std::endl;
+
+
+					//std::cout << "******** Average Prim in leaf: " << primAverage << std::endl;
+					std::vector<double> lcvs;
+					int c = 0;
+					for (const auto& camera : cameras) {
+						auto lcv = LCV_Multi(bvhBuffer, indicesBuffer, triBuffer, camera);
+						lcvs.push_back(lcv);
+						std::cout << "Camera " << c << ": " << lcv << std::endl;
+						++c;
 					}
 					if (!lcvs.empty()) {
 						double sum = 0.0;
@@ -960,7 +1272,7 @@ namespace MCPT::BVH::TEST {
 					
 					std::vector<double> lcvs;
 					for (const auto& camera : cameras) {
-						auto lcv = LCV(bvhB, camera);
+						auto lcv = LCV(bvhB, triB, camera);
 						lcvs.push_back(lcv);
 						std::cout << "Camera1: " << lcv << std::endl;
 					}

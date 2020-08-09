@@ -81,11 +81,13 @@ namespace {
 
 
 HLBVH<CPU>::HLBVH<CPU>(const std::vector<Triangle>& triangles) {
+	primitiveCount = triangles.size();
 	auto t = triangles;
 	build(std::move(t));
 }
 
 HLBVH<CPU>::HLBVH<CPU>(std::vector<Triangle>&& triangles) {
+	primitiveCount = triangles.size();
 	build(std::move(triangles));
 }
 

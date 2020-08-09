@@ -3,14 +3,16 @@
 #pragma once
 
 #include "oclbasic.h"
+
 namespace MCPT {
 
-	
+/*
 #define __global
 #define global
 #define __local
 #define local
 #define __kernel
+*/
     
 #else
 	#define EPSILON 1e-7f
@@ -81,6 +83,16 @@ namespace MCPT {
 	typedef struct BoundingBox_tag {
 		float4 bbmin;
 		float4 bbmax;
+#ifdef __cplusplus
+		BoundingBox_tag()
+			: bbmin({ FLT_MAX,FLT_MAX,FLT_MAX,FLT_MAX }), bbmax({ -FLT_MAX,-FLT_MAX,-FLT_MAX,-FLT_MAX }) {}
+		BoundingBox_tag(float4 min, float4 max) : bbmin(min), bbmax(max) {}
+		float4 centroid() const { return 0.5f * (bbmin + bbmax); }
+		void unionBBox(const BoundingBox_tag& ano) { bbmin = min(bbmin, ano.bbmin); bbmax = max(bbmax, ano.bbmax); }
+		void unionBBoxCentroid(const float4& ano) { bbmin = min(bbmin, ano); bbmax = max(bbmax, ano); }
+		static BoundingBox_tag unionBBox(const BoundingBox_tag& a, const BoundingBox_tag& b) { BoundingBox_tag ans = a; ans.unionBBox(b); return ans; }
+		static BoundingBox_tag unionBBoxCentroid(const BoundingBox_tag& a, const float4& b) { BoundingBox_tag ans = a; ans.unionBBoxCentroid(b); return ans; }
+#endif
 	} BoundingBox;
 
 	typedef struct MortonPrimitive_tag {
@@ -94,8 +106,12 @@ namespace MCPT {
 		int parent;
 		int left;
 		int right;
-		int __padding;
+		int isLeaf; // used in MultiPrimBVHNode
 	} BVHNode;
+
+	// when isLeaf > 0
+	// left&right = range in vector<uint> indices;
+	typedef BVHNode MultiPrimBVHNode;
 
 	typedef struct QuadBVHNode_tag {
 		union {
@@ -105,6 +121,7 @@ namespace MCPT {
 		float4 bbmax;
 		int4 children;
 	} QuadBVHNode;
+
 
 #ifndef __cplusplus
 	float det2x2(float a, float b,
@@ -188,44 +205,44 @@ namespace MCPT {
 		float3 realN = object->normal.s012;
 		float3 Rd = ray->direction.s012;
 		float3 AB, AC, A_Ro;
-float t, b, c;
+		float t, b, c;
 
 
-if (fabs(dot(realN, Rd)) < EPSILON) {
-	return false;
-}
+		if (fabs(dot(realN, Rd)) < EPSILON) {
+			return false;
+		}
 
-AB = (object->v[1] - object->v[0]).s012;
-AC = (object->v[2] - object->v[0]).s012;
-A_Ro = (object->v[0] - ray->origin).s012;
+		AB = (object->v[1] - object->v[0]).s012;
+		AC = (object->v[2] - object->v[0]).s012;
+		A_Ro = (object->v[0] - ray->origin).s012;
 
-Matrix equalization = (float16)(
-	Rd, 0,
-	-AB, 0,
-	-AC, 0,
-	0, 0, 0, 1
-	);
+		Matrix equalization = (float16)(
+			Rd, 0,
+			-AB, 0,
+			-AC, 0,
+			0, 0, 0, 1
+			);
 
-equalization = Inverse(equalization);
-if (equalization.s0 == FLT_MAX)
-return false;
+		equalization = Inverse(equalization);
+		if (equalization.s0 == FLT_MAX)
+		return false;
 
-t = dot(A_Ro, equalization.s048);
-b = dot(A_Ro, equalization.s159);
-c = dot(A_Ro, equalization.s26a);
+		t = dot(A_Ro, equalization.s048);
+		b = dot(A_Ro, equalization.s159);
+		c = dot(A_Ro, equalization.s26a);
 
-if (b < 0 || c < 0 || b + c > 1 || t <= tmin) {
-	return false;
-}
+		if (b < 0 || c < 0 || b + c > 1 || t <= tmin) {
+			return false;
+		}
 
-if (hit->t - t >= EPSILON) {
-	hit->t = t;
-	hit->normal = object->normal;
-	hit->normal.w = 0.0f;
-	hit->materialID = object->materialID.w;
-	hit->intersectPoint = ray->origin + t * ray->direction;
-}
-return true;
+		if (hit->t - t >= EPSILON) {
+			hit->t = t;
+			hit->normal = object->normal;
+			hit->normal.w = 0.0f;
+			hit->materialID = object->materialID.w;
+			hit->intersectPoint = ray->origin + t * ray->direction;
+		}
+		return true;
 	}
 
 	bool intersectAABB(float4 bbmin, float4 bbmax, Ray* r, float tmin) {
@@ -252,7 +269,7 @@ return true;
 		Hit* hit,
 		float tmin
 	) {
-		int stack[64] = { 0 };
+		int stack[128] = { 0 };
 		int sp = 1;
 
 		bool isIntersect = false;
@@ -270,6 +287,45 @@ return true;
 					if (intersectTriangle(ray, &tr, tmin, hit)) {
 						isIntersect = true;
 						hit->triangleID = leftNext;
+					}
+				}
+				else { //then children
+					stack[sp++] = rightNext;
+					node = bvhnodes[leftNext];
+					goto NEXT;
+				}
+			}
+		}
+		return isIntersect;
+	}
+
+	bool intersectObjectsMulti(
+		__global BVHNode* bvhnodes,
+		__global uint* indices,
+		__global Triangle* triangles,
+		Ray* ray,
+		Hit* hit,
+		float tmin
+	) {
+		int stack[128] = { 0 };
+		int sp = 1;
+
+		bool isIntersect = false;
+
+		while (sp > 0) {
+			BVHNode node = bvhnodes[stack[--sp]];
+		NEXT:
+			if (intersectAABB(node.bbmin, node.bbmax, ray, tmin)) {
+				int leftNext = node.left;
+				int rightNext = node.right;
+				if (node.isLeaf) {
+					for (int i = leftNext; i < rightNext; ++i) {
+						int j = indices[i];
+						Triangle tr = triangles[j];
+						if (intersectTriangle(ray, &tr, tmin, hit)) {
+							isIntersect = true;
+							hit->triangleID = j;
+						}
 					}
 				}
 				else { //then children

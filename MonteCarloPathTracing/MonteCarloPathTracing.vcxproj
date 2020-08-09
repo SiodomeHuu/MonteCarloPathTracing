@@ -100,7 +100,7 @@
       <Optimization>Disabled</Optimization>
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp17</LanguageStandard>
+      <LanguageStandard>stdcpplatest</LanguageStandard>
       <DisableSpecificWarnings>4996;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
@@ -139,6 +139,8 @@
       <SubSystem>Console</SubSystem>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
+      <LinkTimeCodeGeneration>UseFastLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -146,6 +148,7 @@
     <ClInclude Include="bvhtest.h" />
     <ClInclude Include="BVH\bvh.h" />
     <ClInclude Include="BVH\hlbvh.h" />
+    <ClInclude Include="BVH\sahbvh.h" />
     <ClInclude Include="BVH\simpleQuad.h" />
     <ClInclude Include="BVH\treeletBVH.h" />
     <ClInclude Include="colorout.h" />
@@ -161,12 +164,14 @@
     <ClInclude Include="stb_image_write.h" />
     <ClInclude Include="thirdpartywrapper.h" />
     <ClInclude Include="tiny_obj_loader.h" />
+    <ClInclude Include="treeletTemp.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="auxiliary.cpp" />
     <ClCompile Include="bvhtest.cpp" />
     <ClCompile Include="BVH\bvh.cpp" />
     <ClCompile Include="BVH\hlbvh.cpp" />
+    <ClCompile Include="BVH\sahbvh.cpp" />
     <ClCompile Include="BVH\simpleQuad.cpp" />
     <ClCompile Include="BVH\treeletBVH.cpp" />
     <ClCompile Include="colorout.cpp" />
@@ -181,6 +186,7 @@
     <ClCompile Include="stb_image_write.cpp" />
     <ClCompile Include="thirdpartywrapper.cpp" />
     <ClCompile Include="tiny_obj_loader.cpp" />
+    <ClCompile Include="treeletTemp.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="config.json" />

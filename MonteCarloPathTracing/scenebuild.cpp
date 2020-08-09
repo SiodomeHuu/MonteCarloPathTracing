@@ -9,6 +9,7 @@
 #include "BVH/hlbvh.h"
 #include "BVH/treeletBVH.h"
 #include "BVH/simpleQuad.h"
+#include "BVH/sahbvh.h"
 
 #include "bvhtest.h"
 
@@ -33,6 +34,7 @@ namespace {
 	cl::Buffer matBuffer;
 	cl::Buffer matIDBuffer;
 	cl::Buffer bvhBuffer;
+	cl::Buffer indicesBuffer; // use in MultiPrim
 	cl::Buffer hitBuffer;
 	cl::Buffer randBuffer;
 
@@ -68,6 +70,10 @@ SceneCL::SceneCL(std::vector<MCPT::Triangle> tr, std::vector<MCPT::Material> mat
 		matBuffer = OpenCLBasic::newBuffer<Material>(materials.size(), materials.data());
 		matIDBuffer = OpenCLBasic::newBuffer<int>(matIndices.size(), matIndices.data());
 	}
+	else {
+		matBuffer = OpenCLBasic::newBuffer<Material>(1);
+		matIDBuffer = OpenCLBasic::newBuffer<int>(1);
+	}
 	
 	rayCount = 0;
 	auto bvhtype = Config::BVHTYPE();
@@ -78,8 +84,56 @@ SceneCL::SceneCL(std::vector<MCPT::Triangle> tr, std::vector<MCPT::Material> mat
 		auto temp = std::make_unique<BVH::HLBVH<BVH::CPU>>(BVH::HLBVH<BVH::CPU>(triangles));
 		bvhpt = std::make_unique< BVH::TreeletBVH<BVH::CPU> >(temp->releaseBVH());
 	}
+	else if (bvhtype == "treelet2") {
+		auto temp = std::make_unique<BVH::HLBVH<BVH::CPU>>(BVH::HLBVH<BVH::CPU>(triangles));
+		bvhpt = std::make_unique< BVH::TreeletBVH<BVH::CPU> >(temp->releaseBVH());
+		auto nodes = bvhpt->releaseBVH();
+		bvhpt.release();
+		bvhpt = std::make_unique< BVH::TreeletBVH_<BVH::CPU> >(std::move(nodes));
+
+		indicesBuffer = OpenCLBasic::newBuffer<uint>(bvhpt->getIndices().size(), (void*)bvhpt->getIndices().data());
+	}
 	else if (bvhtype == "treeletGPU") {
 		goto GPUBVH;
+	}
+	else if (bvhtype.substr(0,3) == "sah") {
+		//throw "Not Implemented";
+		std::vector<BoundingBox> bboxes(triangles.size());
+		for (int i = 0; i < triangles.size(); ++i) {
+			bboxes[i].unionBBoxCentroid(triangles[i].v[0]);
+			bboxes[i].unionBBoxCentroid(triangles[i].v[1]);
+			bboxes[i].unionBBoxCentroid(triangles[i].v[2]);
+		}
+		std::vector<uint32_t> indices(triangles.size());
+		for (int i = 0; i < triangles.size(); ++i) {
+			indices[i] = i;
+		}
+
+		auto arg = std::tuple{ false, 0u, 16 };
+		switch (bvhtype[3]) {
+		case '1': { // 1axis binning
+			arg = { false, 16u ,0 };
+			break;
+		}
+		case '2': { // 1axis full
+			arg = { false, 0u, 0 };
+			break;
+		}
+		case '3': { // 3axis binning
+			arg = { true, 16u, 0 };
+			break;
+		}
+		case '4': { // 3axis full
+			arg = { true, 0u, 0 };
+			break;
+		}
+		default:
+			throw "Not Implemented";
+		}
+
+		bvhpt = std::make_unique< BVH::SAHBVH<BVH::CPU> >(bboxes, std::move(indices), arg);
+
+		indicesBuffer = OpenCLBasic::newBuffer<uint>(bvhpt->getIndices().size(), (void*)bvhpt->getIndices().data());
 	}
 	else {
 		throw "BVH Not Implemented";
@@ -100,9 +154,13 @@ SceneCL::SceneCL(std::vector<MCPT::Triangle> tr, std::vector<MCPT::Material> mat
 			trBuffer = OpenCLBasic::newBuffer<Triangle>(triangles.size(), triangles.data());
 			bvhBuffer = OpenCLBasic::newBuffer<BVHNode>(bvh.size(), bvh.data());
 
-			if ((bool)Config::getConfig()["testbvh"]) {
+			if (Config::BVHTYPE() == "treelet2" || Config::BVHTYPE().substr(0, 3) == "sah") {
+				BVH::TEST::singleTest(bvh, bvhpt->getIndices(), trBuffer);
+			}
+			else if ((bool)Config::getConfig()["testbvh"]) {
 				BVH::TEST::singleTest(bvhBuffer, trBuffer);
 			}
+			
 		}
 		
 		return;
@@ -145,10 +203,14 @@ void SceneCL::intersect(MCPT::RayGeneration::RayBase* rays)
 			return 0;
 		} ();
 
-		OpenCLBasic::setKernelArg(intersectKernel, rayPt->rayBuffer,bvhBuffer,trBuffer,hitBuffer,EPSILON);
-		OpenCLBasic::enqueueNDRange(intersectKernel, rayCount, cl::NullRange);
-
-
+		if (Config::BVHTYPE() == "treelet2" || Config::BVHTYPE().substr(0, 3) == "sah") {
+			OpenCLBasic::setKernelArg(intersectKernel, rayPt->rayBuffer, bvhBuffer, indicesBuffer, trBuffer, hitBuffer, EPSILON);
+			OpenCLBasic::enqueueNDRange(intersectKernel, rayCount, cl::NullRange);
+		}
+		else {
+			OpenCLBasic::setKernelArg(intersectKernel, rayPt->rayBuffer, bvhBuffer, trBuffer, hitBuffer, EPSILON);
+			OpenCLBasic::enqueueNDRange(intersectKernel, rayCount, cl::NullRange);
+		}
 	}
 	else {
 		throw "Not Implemented";
@@ -180,14 +242,22 @@ std::unique_ptr< SceneBase > MCPT::SceneBuild::buildScene(std::vector<MCPT::Tria
 
 void MCPT::SceneBuild::init() {
 	if (Config::USEOPENCL()) {
-		if (Config::USEQUAD()) {
-			intersectProgram = OpenCLBasic::createProgramFromFileWithHeader(Config::INTERSECTKERNELPATH(), "objdef.h","-D MCPT_USE_QUADBVH=1");
+		if (Config::BVHTYPE() == "treelet2" || Config::BVHTYPE().substr(0, 3) == "sah") {
+			intersectProgram = OpenCLBasic::createProgramFromFileWithHeader(Config::INTERSECTKERNELPATH(), "objdef.h", "-D MCPT_MULTI=1");
 			intersectKernel = OpenCLBasic::createKernel(intersectProgram, "intersectRays");
 		}
 		else {
-			intersectProgram = OpenCLBasic::createProgramFromFileWithHeader(Config::INTERSECTKERNELPATH(), "objdef.h");
-			intersectKernel = OpenCLBasic::createKernel(intersectProgram, "intersectRays");
+			if (Config::USEQUAD()) {
+				intersectProgram = OpenCLBasic::createProgramFromFileWithHeader(Config::INTERSECTKERNELPATH(), "objdef.h", "-D MCPT_USE_QUADBVH=1");
+				intersectKernel = OpenCLBasic::createKernel(intersectProgram, "intersectRays");
+			}
+			else {
+				intersectProgram = OpenCLBasic::createProgramFromFileWithHeader(Config::INTERSECTKERNELPATH(), "objdef.h");
+				intersectKernel = OpenCLBasic::createKernel(intersectProgram, "intersectRays");
+			}
 		}
+
+		
 
 		if (Config::TESTBVH()) {
 			shadeProgram = OpenCLBasic::createProgramFromFileWithHeader(Config::SHADEKERNELPATH(), "objdef.h", ("-D MCPT_TEST_BVH=1 -D MAX_DEPTH=" + std::to_string(Config::MAXDEPTH())));

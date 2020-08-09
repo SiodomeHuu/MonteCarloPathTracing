@@ -58,6 +58,12 @@
     <Filter Include="Auxiliary\thirdparty">
       <UniqueIdentifier>{c76d1a85-fc92-4617-a0d3-093378061895}</UniqueIdentifier>
     </Filter>
+    <Filter Include="BVH\SAH">
+      <UniqueIdentifier>{47637133-5c7c-4df3-9066-f31fbcbbac0f}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="BVH\TreeletBVH\TreeletTest">
+      <UniqueIdentifier>{17dbb0e9-265d-4a67-bc88-536b5f66f9ba}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="oclbasic.h">
@@ -117,6 +123,12 @@
     <ClInclude Include="quartzsceneparser.h">
       <Filter>Auxiliary\thirdparty</Filter>
     </ClInclude>
+    <ClInclude Include="BVH\sahbvh.h">
+      <Filter>BVH\SAH</Filter>
+    </ClInclude>
+    <ClInclude Include="treeletTemp.h">
+      <Filter>BVH\TreeletBVH\TreeletTest</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="oclbasic.cpp">
@@ -172,6 +184,12 @@
     </ClCompile>
     <ClCompile Include="quartzsceneparser.cpp">
       <Filter>Auxiliary\thirdparty</Filter>
+    </ClCompile>
+    <ClCompile Include="BVH\sahbvh.cpp">
+      <Filter>BVH\SAH</Filter>
+    </ClCompile>
+    <ClCompile Include="treeletTemp.cpp">
+      <Filter>BVH\TreeletBVH\TreeletTest</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -146,7 +146,7 @@ __kernel void calculateEPO(
 
 	float epo_area = 0.0f;
 
-	int ancestor[128];
+	int ancestor[256];
 	ancestor[0] = myID;
 	int anSize = 1;
 
@@ -155,7 +155,7 @@ __kernel void calculateEPO(
 		ancestor[anSize++] = nowParent;
 		nowParent = bvh[nowParent].parent;
 	}
-	if(anSize >= 128) printf("anSize overflow\n");
+	if(anSize >= 256) printf("anSize overflow\n");
 
 	// now ancestor get
 	// next, hit with root
@@ -165,7 +165,7 @@ __kernel void calculateEPO(
 	int testSize = 1;
 
 	while(testSize > 0) {
-		if(testSize >= 128) printf("testSize overflow");
+		if(testSize >= 256) printf("testSize overflow");
 
 		int nowTest = toTest[--testSize];
 		bool skip = false;
@@ -195,6 +195,88 @@ __kernel void calculateEPO(
 	trianglesEPO[gid] = epo_area;
 	trianglesArea[gid] = length(cross(tr.v[1].s012-tr.v[0].s012,tr.v[2].s012-tr.v[0].s012)) * 0.5f;
 }
+
+
+__kernel void calculateEPO_Multi(
+	__global BVHNode* bvh,
+	__global uint* indices,
+	__global uint* leafIDs,
+	__global Triangle* triangles,
+
+	__global float* trianglesEPO,
+	__global float* trianglesArea
+) {
+	size_t gid = get_global_id(0);
+	size_t nodeID = leafIDs[gid];
+
+	float epo_area = 0.0f;
+	float areaSum = 0.0f;
+
+	int ancestor[256];
+	int anSize;
+	int myID;
+
+	int toTest[256];
+	int testSize;
+
+	for (int i = bvh[nodeID].left; i < bvh[nodeID].right; ++i) {
+		myID = indices[i];
+		Triangle tr = triangles[ myID ];
+
+		areaSum += length(cross(tr.v[1].s012 - tr.v[0].s012, tr.v[2].s012 - tr.v[0].s012)) * 0.5f;
+
+		ancestor[0] = nodeID;
+		anSize = 1;
+
+		int nowParent = bvh[nodeID].parent;
+		while (nowParent != -1) {
+			ancestor[anSize++] = nowParent;
+			nowParent = bvh[nowParent].parent;
+
+			if (anSize >= 256) printf("anSize overflow\n");
+		}
+		// now ancestor get
+		// next, hit with root
+		toTest[0] = 0;
+		testSize = 1;
+
+		while (testSize > 0) {
+			if (testSize >= 256) printf("testSize overflow");
+			int nowTest = toTest[--testSize];
+			bool skip = false;
+
+			for (int i = 0; i < anSize; ++i) {
+				if (nowTest == ancestor[i]) {
+					if (!bvh[nowTest].isLeaf) {
+						toTest[testSize++] = bvh[nowTest].right;
+						toTest[testSize++] = bvh[nowTest].left;
+					}
+					skip = true;
+					break;
+				}
+			}
+			if (skip) continue;
+
+			float tempArea = INTERSECT(&tr, bvh[nowTest].bbmin, bvh[nowTest].bbmax);
+			if (tempArea > 0) {
+				epo_area += tempArea * (  bvh[nowTest].isLeaf ? Ctri : Cinn);
+				if (!bvh[nowTest].isLeaf) {
+					toTest[testSize++] = bvh[nowTest].right;
+					toTest[testSize++] = bvh[nowTest].left;
+				}
+			}
+		}
+
+	}
+	
+
+	trianglesEPO[gid] = epo_area;
+	trianglesArea[gid] = areaSum;
+}
+
+
+
+
 
 __kernel void calculateQuadEPO(
 	__global QuadBVHNode* bvh,
@@ -275,12 +357,35 @@ __kernel void calculateQuadEPO(
 
 
 
+bool improveIntersectAABB(float4 bbmin, float4 bbmax, Ray* r, float tmin, float* tmax) {
+	float4 ori = r->origin;
+	float4 dir = r->direction;
+	dir.w = 1;
+	float4 off1 = (bbmin - ori) / dir;
+	float4 off2 = (bbmax - ori) / dir;
+
+	float4 tempMin = fmin(off1, off2);
+	float4 tempMax = fmax(off1, off2);
+
+	float tnear = fmax(fmax(tempMin.x, tempMin.y), tempMin.z);
+	float tfar = fmin(fmin(tempMax.x, tempMax.y), tempMax.z);
+	if (tfar < tnear || tfar < tmin) return false;
+	if (tnear >= *tmax) return false;
+	return true;
+}
+
+
 
 
 __kernel void LCV(
 	__global Ray* ray,
 	__global BVHNode* nodes,
-	__global int* counts
+
+	__global Triangle* triangles,
+
+	__global int* counts,
+	__global int* innerCounts,
+	__global int* primCounts
 ) {
 	size_t gid = get_global_id(0);
 	int stack[64] = {0};
@@ -288,27 +393,135 @@ __kernel void LCV(
 	float tmin = EPSILON;
 
 	int count = 0;
+	int innerCount = 0;
+	int primCount = 0;
+
 
 	Ray r = ray[gid];
+
+
+	float tmax = FLT_MAX;
+
 
 	while(sp > 0) {
 		BVHNode node = nodes[stack[--sp]];
 	NEXT:
-		if(intersectAABB(node.bbmin, node.bbmax, &r, tmin)) {
+		if (node.left == node.right) {
+			++count;
+		}
+		else {
+			++innerCount;
+		}
+		if(improveIntersectAABB(node.bbmin, node.bbmax, &r, tmin, &tmax)) {
 			int leftNext = node.left;
 			int rightNext = node.right;
 			if(leftNext == rightNext) {
 				++count;
+				++primCount;
+
+				Hit hit;
+				hit.t = FLT_MAX;
+				Triangle tr = triangles[leftNext];
+				intersectTriangle(&r, &tr, 0, &hit);
+
+				if (tmax >= hit.t) {
+					tmax = hit.t;
+				}
 			}
 			else {
 				stack[sp++] = rightNext;
 				node = nodes[leftNext];
+
 				goto NEXT;
 			}
 		}
 	}
 	counts[gid] = count;
+
+	innerCounts[gid] = innerCount;
+	primCounts[gid] = primCount;
 }
+
+
+__kernel void LCV_Multi(
+	__global Ray* ray,
+	__global BVHNode* nodes,
+	__global uint* indices,
+	
+	__global Triangle* triangles,
+
+	__global int* counts,
+	__global int* innerCounts,
+	__global int* primCounts
+) {
+	size_t gid = get_global_id(0);
+	int stack[64] = { 0 };
+	int sp = 1;
+	float tmin = EPSILON;
+
+	int count = 0;
+	int innerCount = 0;
+	int primCount = 0;
+
+	Ray r = ray[gid];
+
+	float tmax = FLT_MAX;
+
+	while (sp > 0) {
+		BVHNode node = nodes[stack[--sp]];
+	NEXT:
+		if (node.isLeaf) {
+			++count;
+		}
+		else {
+			++innerCount;
+		}
+		if (improveIntersectAABB(node.bbmin, node.bbmax, &r, tmin, &tmax)) {
+			if (node.isLeaf) {
+				primCount += node.right - node.left;
+
+				Hit hit;
+				hit.t = FLT_MAX;
+				for (int i = node.left; i < node.right; ++i) {
+					Triangle tr = triangles[indices[i]];
+					intersectTriangle(&r, &tr, 0, &hit);
+				}
+				if (tmax >= hit.t) {
+					tmax = hit.t;
+				}
+			}
+			else {
+				int leftNext = node.left;
+				int rightNext = node.right;
+				stack[sp++] = rightNext;
+				node = nodes[leftNext];
+
+				goto NEXT;
+			}
+		}
+	}
+	counts[gid] = count;
+	innerCounts[gid] = innerCount;
+	primCounts[gid] = primCount;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 __kernel void QuadLCV(
